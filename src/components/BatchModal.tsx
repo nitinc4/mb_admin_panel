@@ -1,29 +1,31 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
+interface Tier { id: string; name: string; }
 interface Batch {
   id: string;
   name: string;
   description: string;
   start_date: string;
   end_date: string;
-  is_active: boolean;
-  allowed_tiers: Array<{ id: string; name: string }>;
+  isActive: boolean;
+  allowed_tiers: Array<{ _id?: string; id?: string; name: string }>;
 }
 
 interface BatchModalProps {
   batch: Batch | null;
+  tiers: Tier[]; // <-- Now passing real tiers
   onClose: () => void;
   onSave: () => void;
 }
 
-const mockTiers = [
-  { id: '1', name: 'Basic' },
-  { id: '2', name: 'Premium' },
-  { id: '3', name: 'Enterprise' },
-];
+// Helper to format ISO dates to YYYY-MM-DD for the HTML date input
+const formatDateForInput = (dateString?: string) => {
+  if (!dateString) return '';
+  return new Date(dateString).toISOString().split('T')[0];
+};
 
-export default function BatchModal({ batch, onClose, onSave }: BatchModalProps) {
+export default function BatchModal({ batch, tiers, onClose, onSave }: BatchModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -32,23 +34,47 @@ export default function BatchModal({ batch, onClose, onSave }: BatchModalProps) 
     is_active: true,
     tier_ids: [] as string[],
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (batch) {
       setFormData({
         name: batch.name,
-        description: batch.description,
-        start_date: batch.start_date,
-        end_date: batch.end_date,
-        is_active: batch.is_active,
-        tier_ids: batch.allowed_tiers.map((t) => t.id),
+        description: batch.description || '',
+        start_date: formatDateForInput(batch.start_date),
+        end_date: formatDateForInput(batch.end_date),
+        is_active: batch.isActive,
+        // Map the allowed tiers to just their IDs
+        tier_ids: batch.allowed_tiers.map((t) => t.id || t._id || ''),
       });
     }
   }, [batch]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave();
+    setIsSubmitting(true);
+
+    try {
+      const url = batch 
+        ? `http://localhost:3001/api/batches/${batch.id}` 
+        : 'http://localhost:3001/api/batches';
+
+      const response = await fetch(url, {
+        method: batch ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        onSave();
+      } else {
+        console.error('Failed to save batch');
+      }
+    } catch (error) {
+      console.error('Error saving batch:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleTierToggle = (tierId: string) => {
@@ -67,19 +93,14 @@ export default function BatchModal({ batch, onClose, onSave }: BatchModalProps) 
           <h2 className="text-xl font-bold text-gray-800">
             {batch ? 'Edit Batch' : 'Create New Batch'}
           </h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Batch Name
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Batch Name</label>
             <input
               type="text"
               value={formData.name}
@@ -90,14 +111,10 @@ export default function BatchModal({ batch, onClose, onSave }: BatchModalProps) 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea
               value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -105,59 +122,44 @@ export default function BatchModal({ batch, onClose, onSave }: BatchModalProps) 
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Start Date
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
               <input
                 type="date"
                 value={formData.start_date}
-                onChange={(e) =>
-                  setFormData({ ...formData, start_date: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                End Date
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
               <input
                 type="date"
                 value={formData.end_date}
-                onChange={(e) =>
-                  setFormData({ ...formData, end_date: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Access Restrictions
-            </label>
-            <div className="space-y-2">
-              {mockTiers.map((tier) => (
-                <label
-                  key={tier.id}
-                  className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
-                >
+            <label className="block text-sm font-medium text-gray-700 mb-2">Access Restrictions</label>
+            <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2">
+              {tiers.length === 0 ? (
+                <p className="text-sm text-gray-500 p-2">No tiers found. Create a tier first.</p>
+              ) : tiers.map((tier) => (
+                <label key={tier.id} className="flex items-center p-2 hover:bg-gray-50 cursor-pointer rounded">
                   <input
                     type="checkbox"
                     checked={formData.tier_ids.includes(tier.id)}
                     onChange={() => handleTierToggle(tier.id)}
                     className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   />
-                  <span className="ml-3 text-sm font-medium text-gray-700">
-                    {tier.name}
-                  </span>
+                  <span className="ml-3 text-sm font-medium text-gray-700">{tier.name}</span>
                 </label>
               ))}
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Select which user tiers can access this batch
-            </p>
+            <p className="text-xs text-gray-500 mt-2">Select which user tiers can access this batch</p>
           </div>
 
           <div className="flex items-center">
@@ -165,29 +167,18 @@ export default function BatchModal({ batch, onClose, onSave }: BatchModalProps) 
               type="checkbox"
               id="is_active"
               checked={formData.is_active}
-              onChange={(e) =>
-                setFormData({ ...formData, is_active: e.target.checked })
-              }
+              onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
               className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
-            <label htmlFor="is_active" className="ml-2 text-sm text-gray-700">
-              Active batch
-            </label>
+            <label htmlFor="is_active" className="ml-2 text-sm text-gray-700">Active batch</label>
           </div>
 
           <div className="flex gap-3 pt-4 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            >
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
               Cancel
             </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              {batch ? 'Update Batch' : 'Create Batch'}
+            <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
+              {isSubmitting ? 'Saving...' : (batch ? 'Update Batch' : 'Create Batch')}
             </button>
           </div>
         </form>

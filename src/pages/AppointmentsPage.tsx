@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, X, Calendar, Clock, User, DollarSign, Check } from 'lucide-react';
- 
+import { Plus, X, Calendar, Clock, DollarSign, Check } from 'lucide-react';
 
 interface Service {
   id: string;
@@ -12,20 +11,18 @@ interface Service {
 interface User {
   id: string;
   email: string;
-  full_name: string;
+  name: string;
 }
 
 interface Appointment {
   id: string;
-  user_id: string;
-  service_id: string;
-  scheduled_at: string;
+  user: User;
+  service: Service;
+  scheduledAt: string;
   status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
   notes: string;
-  is_paid: boolean;
-  payment_amount: number;
-  users?: User;
-  services?: Service;
+  isPaid: boolean;
+  paymentAmount: number;
 }
 
 export default function AppointmentsPage() {
@@ -52,21 +49,18 @@ export default function AppointmentsPage() {
     try {
       setLoading(true);
       const [appointmentsRes, servicesRes, usersRes] = await Promise.all([
-        supabase
-          .from('appointments')
-          .select('*, users(*), services(*)')
-          .order('scheduled_at', { ascending: false }),
-        supabase.from('services').select('*'),
-        supabase.from('users').select('*'),
+        fetch('http://localhost:3001/api/appointments'),
+        fetch('http://localhost:3001/api/services'),
+        fetch('http://localhost:3001/api/users'),
       ]);
 
-      if (appointmentsRes.error) throw appointmentsRes.error;
-      if (servicesRes.error) throw servicesRes.error;
-      if (usersRes.error) throw usersRes.error;
+      const appointmentsData = await appointmentsRes.json();
+      const servicesData = await servicesRes.json();
+      const usersData = await usersRes.json();
 
-      setAppointments(appointmentsRes.data || []);
-      setServices(servicesRes.data || []);
-      setUsers(usersRes.data || []);
+      if (appointmentsData.success) setAppointments(appointmentsData.data || []);
+      if (servicesData.success) setServices(servicesData.data || []);
+      if (usersData.success) setUsers(usersData.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -80,31 +74,30 @@ export default function AppointmentsPage() {
     try {
       const scheduled_at = new Date(`${form.scheduled_at}T${form.scheduled_time}`).toISOString();
 
-      const { data, error } = await supabase
-        .from('appointments')
-        .insert([
-          {
-            user_id: form.user_id,
-            service_id: form.service_id,
-            scheduled_at,
-            notes: form.notes,
-            status: 'pending',
-          },
-        ])
-        .select('*, users(*), services(*)')
-        .single();
-
-      if (error) throw error;
-
-      setAppointments([data, ...appointments]);
-      setForm({
-        user_id: '',
-        service_id: '',
-        scheduled_at: new Date().toISOString().split('T')[0],
-        scheduled_time: '10:00',
-        notes: '',
+      const response = await fetch('http://localhost:3001/api/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: form.user_id,
+          service_id: form.service_id,
+          scheduled_at,
+          notes: form.notes,
+        }),
       });
-      setShowModal(false);
+
+      const result = await response.json();
+
+      if (result.success) {
+        setAppointments([result.data, ...appointments]);
+        setForm({
+          user_id: '',
+          service_id: '',
+          scheduled_at: new Date().toISOString().split('T')[0],
+          scheduled_time: '10:00',
+          notes: '',
+        });
+        setShowModal(false);
+      }
     } catch (error) {
       console.error('Error creating appointment:', error);
     }
@@ -112,16 +105,17 @@ export default function AppointmentsPage() {
 
   const handleStatusChange = async (appointmentId: string, newStatus: string) => {
     try {
-      const { data, error } = await supabase
-        .from('appointments')
-        .update({ status: newStatus })
-        .eq('id', appointmentId)
-        .select('*, users(*), services(*)')
-        .single();
+      const response = await fetch(`http://localhost:3001/api/appointments/${appointmentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      
+      const result = await response.json();
 
-      if (error) throw error;
-
-      setAppointments(appointments.map((a) => (a.id === appointmentId ? data : a)));
+      if (result.success) {
+        setAppointments(appointments.map((a) => (a.id === appointmentId ? result.data : a)));
+      }
     } catch (error) {
       console.error('Error updating appointment:', error);
     }
@@ -129,28 +123,27 @@ export default function AppointmentsPage() {
 
   const handleMarkAsPaid = async (appointmentId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('appointments')
-        .update({ is_paid: true })
-        .eq('id', appointmentId)
-        .select('*, users(*), services(*)')
-        .single();
+      const response = await fetch(`http://localhost:3001/api/appointments/${appointmentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPaid: true }),
+      });
 
-      if (error) throw error;
+      const result = await response.json();
 
-      setAppointments(appointments.map((a) => (a.id === appointmentId ? data : a)));
+      if (result.success) {
+        setAppointments(appointments.map((a) => (a.id === appointmentId ? result.data : a)));
+      }
     } catch (error) {
       console.error('Error marking as paid:', error);
     }
   };
 
   const handleDeleteAppointment = async (appointmentId: string) => {
-    if (!confirm('Delete this appointment?')) return;
+    if (!window.confirm('Delete this appointment?')) return;
 
     try {
-      const { error } = await supabase.from('appointments').delete().eq('id', appointmentId);
-      if (error) throw error;
-
+      await fetch(`http://localhost:3001/api/appointments/${appointmentId}`, { method: 'DELETE' });
       setAppointments(appointments.filter((a) => a.id !== appointmentId));
     } catch (error) {
       console.error('Error deleting appointment:', error);
@@ -179,7 +172,7 @@ export default function AppointmentsPage() {
   };
 
   if (loading) {
-    return <div className="p-8">Loading...</div>;
+    return <div className="p-8 text-gray-500">Loading appointments...</div>;
   }
 
   return (
@@ -194,9 +187,7 @@ export default function AppointmentsPage() {
           <button
             onClick={() => setView('kanban')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              view === 'kanban'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              view === 'kanban' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
           >
             Kanban
@@ -204,9 +195,7 @@ export default function AppointmentsPage() {
           <button
             onClick={() => setView('calendar')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              view === 'calendar'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              view === 'calendar' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
           >
             Calendar
@@ -228,7 +217,7 @@ export default function AppointmentsPage() {
               className="flex-shrink-0 w-80 bg-gray-50 rounded-lg border border-gray-200 p-4 max-h-[calc(100vh-300px)] overflow-y-auto"
             >
               <h3 className="font-semibold text-gray-800 mb-4 capitalize flex items-center justify-between">
-                <span>{status}</span>
+                <span>{status.replace('_', ' ')}</span>
                 <span className="bg-gray-200 text-gray-700 rounded-full w-6 h-6 flex items-center justify-center text-sm">
                   {getAppointmentsByStatus(status).length}
                 </span>
@@ -252,25 +241,25 @@ export default function AppointmentsPage() {
                   >
                     <div className="mb-2">
                       <p className="font-semibold text-gray-800 text-sm">
-                        {appointment.services?.name || 'Unknown Service'}
+                        {appointment.service?.name || 'Unknown Service'}
                       </p>
-                      <p className="text-xs text-gray-600">{appointment.users?.full_name || 'Unknown User'}</p>
+                      <p className="text-xs text-gray-600">{appointment.user?.name || 'Unknown User'}</p>
                     </div>
 
                     <div className="space-y-1 mb-3 text-xs text-gray-600">
                       <div className="flex items-center gap-1">
                         <Calendar size={12} />
-                        <span>{formatDate(appointment.scheduled_at)}</span>
+                        <span>{formatDate(appointment.scheduledAt)}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Clock size={12} />
-                        <span>{formatTime(appointment.scheduled_at)}</span>
+                        <span>{formatTime(appointment.scheduledAt)}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <DollarSign size={12} />
                         <span>
-                          ₹{appointment.payment_amount.toFixed(2)}{' '}
-                          {appointment.is_paid ? (
+                          ₹{appointment.paymentAmount.toFixed(2)}{' '}
+                          {appointment.isPaid ? (
                             <span className="text-green-600 font-semibold">(Paid)</span>
                           ) : (
                             <span className="text-red-600 font-semibold">(Unpaid)</span>
@@ -284,7 +273,7 @@ export default function AppointmentsPage() {
                     )}
 
                     <div className="flex flex-col gap-2">
-                      {!appointment.is_paid && (
+                      {!appointment.isPaid && (
                         <button
                           onClick={() => handleMarkAsPaid(appointment.id)}
                           className="w-full px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors flex items-center justify-center gap-1"
@@ -300,7 +289,7 @@ export default function AppointmentsPage() {
                       >
                         {statuses.map((s) => (
                           <option key={s} value={s}>
-                            {s.charAt(0).toUpperCase() + s.slice(1)}
+                            {s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}
                           </option>
                         ))}
                       </select>
@@ -335,10 +324,7 @@ export default function AppointmentsPage() {
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-800">New Appointment</h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="p-1 text-gray-500 hover:text-gray-700"
-              >
+              <button onClick={() => setShowModal(false)} className="p-1 text-gray-500 hover:text-gray-700">
                 <X size={20} />
               </button>
             </div>
@@ -354,7 +340,7 @@ export default function AppointmentsPage() {
                   <option value="">Select User</option>
                   {users.map((user) => (
                     <option key={user.id} value={user.id}>
-                      {user.full_name || user.email}
+                      {user.name || user.email}
                     </option>
                   ))}
                 </select>
@@ -368,6 +354,7 @@ export default function AppointmentsPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select Service</option>
+                  {services.length === 0 && <option disabled>No services available. Add one via backend first.</option>}
                   {services.map((service) => (
                     <option key={service.id} value={service.id}>
                       {service.name} (₹{service.price.toFixed(2)})

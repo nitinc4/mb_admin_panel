@@ -1,38 +1,23 @@
 import express from 'express';
- 
+import Batch from '../models/Batch.js';
+import ContentItem from '../models/ContentItem.js';
 
 const router = express.Router();
 
 router.get('/', async (req, res) => {
   try {
-    const { data: batches, error: batchesError } = await supabase
-      .from('batches')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (batchesError) throw batchesError;
+    const batches = await Batch.find()
+      .populate('allowedTiers', 'id name')
+      .sort({ createdAt: -1 });
 
     const batchesWithTiers = await Promise.all(
       batches.map(async (batch) => {
-        const { data: tierAccess } = await supabase
-          .from('batch_tier_access')
-          .select(`
-            user_tiers (
-              id,
-              name
-            )
-          `)
-          .eq('batch_id', batch.id);
-
-        const { data: contentCount } = await supabase
-          .from('content_items')
-          .select('id', { count: 'exact', head: true })
-          .eq('batch_id', batch.id);
-
+        const contentCount = await ContentItem.countDocuments({ batch: batch._id });
+        
         return {
-          ...batch,
-          allowed_tiers: tierAccess?.map((ta) => ta.user_tiers) || [],
-          content_count: contentCount || 0,
+          ...batch.toJSON(), // <--- THIS FIXES THE BLANK DATA
+          allowed_tiers: batch.allowedTiers,
+          content_count: contentCount,
         };
       })
     );
@@ -45,39 +30,22 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const { data: batch, error: batchError } = await supabase
-      .from('batches')
-      .select('*')
-      .eq('id', req.params.id)
-      .maybeSingle();
+    const batch = await Batch.findById(req.params.id)
+      .populate('allowedTiers', 'id name');
 
-    if (batchError) throw batchError;
     if (!batch) {
       return res.status(404).json({ success: false, error: 'Batch not found' });
     }
 
-    const { data: tierAccess } = await supabase
-      .from('batch_tier_access')
-      .select(`
-        user_tiers (
-          id,
-          name
-        )
-      `)
-      .eq('batch_id', batch.id);
-
-    const { data: content } = await supabase
-      .from('content_items')
-      .select('*')
-      .eq('batch_id', batch.id)
-      .order('order_index', { ascending: true });
+    const contentItems = await ContentItem.find({ batch: batch._id })
+      .sort({ orderIndex: 1 });
 
     res.json({
       success: true,
       data: {
-        ...batch,
-        allowed_tiers: tierAccess?.map((ta) => ta.user_tiers) || [],
-        content_items: content || [],
+        ...batch.toJSON(), // <--- THIS FIXES THE BLANK DATA
+        allowed_tiers: batch.allowedTiers,
+        content_items: contentItems,
       },
     });
   } catch (error) {
@@ -89,36 +57,16 @@ router.post('/', async (req, res) => {
   try {
     const { name, description, start_date, end_date, is_active, tier_ids } = req.body;
 
-    const { data: batch, error: batchError } = await supabase
-      .from('batches')
-      .insert([
-        {
-          name,
-          description: description || '',
-          start_date: start_date || null,
-          end_date: end_date || null,
-          is_active: is_active !== undefined ? is_active : true,
-        },
-      ])
-      .select()
-      .single();
+    const data = await Batch.create({
+      name,
+      description: description || '',
+      start_date: start_date || null,
+      end_date: end_date || null,
+      isActive: is_active !== undefined ? is_active : true,
+      allowedTiers: tier_ids || []
+    });
 
-    if (batchError) throw batchError;
-
-    if (tier_ids && tier_ids.length > 0) {
-      const tierAccessRecords = tier_ids.map((tier_id) => ({
-        batch_id: batch.id,
-        tier_id,
-      }));
-
-      const { error: tierError } = await supabase
-        .from('batch_tier_access')
-        .insert(tierAccessRecords);
-
-      if (tierError) throw tierError;
-    }
-
-    res.status(201).json({ success: true, data: batch });
+    res.status(201).json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -128,41 +76,24 @@ router.put('/:id', async (req, res) => {
   try {
     const { name, description, start_date, end_date, is_active, tier_ids } = req.body;
 
-    const { data: batch, error: batchError } = await supabase
-      .from('batches')
-      .update({
+    const data = await Batch.findByIdAndUpdate(
+      req.params.id,
+      {
         name,
         description,
         start_date,
         end_date,
-        is_active,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', req.params.id)
-      .select()
-      .single();
+        isActive: is_active,
+        allowedTiers: tier_ids || []
+      },
+      { new: true, runValidators: true }
+    );
 
-    if (batchError) throw batchError;
-
-    await supabase
-      .from('batch_tier_access')
-      .delete()
-      .eq('batch_id', req.params.id);
-
-    if (tier_ids && tier_ids.length > 0) {
-      const tierAccessRecords = tier_ids.map((tier_id) => ({
-        batch_id: req.params.id,
-        tier_id,
-      }));
-
-      const { error: tierError } = await supabase
-        .from('batch_tier_access')
-        .insert(tierAccessRecords);
-
-      if (tierError) throw tierError;
+    if (!data) {
+      return res.status(404).json({ success: false, error: 'Batch not found' });
     }
 
-    res.json({ success: true, data: batch });
+    res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -170,12 +101,13 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
-    const { error } = await supabase
-      .from('batches')
-      .delete()
-      .eq('id', req.params.id);
+    const data = await Batch.findByIdAndDelete(req.params.id);
+    
+    if (!data) {
+       return res.status(404).json({ success: false, error: 'Batch not found' });
+    }
 
-    if (error) throw error;
+    await ContentItem.deleteMany({ batch: req.params.id });
 
     res.json({ success: true, message: 'Batch deleted successfully' });
   } catch (error) {

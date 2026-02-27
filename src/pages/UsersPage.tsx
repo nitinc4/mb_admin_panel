@@ -1,107 +1,92 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search } from 'lucide-react';
 import UserModal from '../components/UserModal';
 import TierModal from '../components/TierModal';
-
-interface User {
-  id: string;
-  email: string;
-  full_name: string;
-  phone: string;
-  tier_name: string;
-  is_active: boolean;
-  created_at: string;
-}
 
 interface Tier {
   id: string;
   name: string;
   description: string;
   price: number;
-  user_count: number;
 }
 
-const mockUsers: User[] = [
-  {
-    id: '1',
-    email: 'john.doe@example.com',
-    full_name: 'John Doe',
-    phone: '+1234567890',
-    tier_name: 'Premium',
-    is_active: true,
-    created_at: '2024-01-15',
-  },
-  {
-    id: '2',
-    email: 'jane.smith@example.com',
-    full_name: 'Jane Smith',
-    phone: '+1234567891',
-    tier_name: 'Basic',
-    is_active: true,
-    created_at: '2024-01-20',
-  },
-  {
-    id: '3',
-    email: 'bob.johnson@example.com',
-    full_name: 'Bob Johnson',
-    phone: '+1234567892',
-    tier_name: 'Premium',
-    is_active: false,
-    created_at: '2024-02-01',
-  },
-];
-
-const mockTiers: Tier[] = [
-  {
-    id: '1',
-    name: 'Basic',
-    description: 'Basic tier with limited access',
-    price: 99.99,
-    user_count: 45,
-  },
-  {
-    id: '2',
-    name: 'Premium',
-    description: 'Premium tier with full access',
-    price: 199.99,
-    user_count: 128,
-  },
-  {
-    id: '3',
-    name: 'Enterprise',
-    description: 'Enterprise tier with custom features',
-    price: 499.99,
-    user_count: 12,
-  },
-];
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  phone: string;
+  tier: Tier | null; // Populated by Mongoose
+  isActive: boolean;
+  createdAt: string;
+}
 
 export default function UsersPage() {
   const [activeView, setActiveView] = useState<'users' | 'tiers'>('users');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  const [users, setUsers] = useState<User[]>([]);
+  const [tiers, setTiers] = useState<Tier[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isTierModalOpen, setIsTierModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedTier, setSelectedTier] = useState<Tier | null>(null);
 
-  const filteredUsers = mockUsers.filter(
-    (user) =>
-      user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredTiers = mockTiers.filter((tier) =>
-    tier.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleEditUser = (user: User) => {
-    setSelectedUser(user);
-    setIsUserModalOpen(true);
+  // FETCH DATA FUNCTION
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      const [usersRes, tiersRes] = await Promise.all([
+        fetch('http://localhost:3001/api/users'),
+        fetch('http://localhost:3001/api/tiers')
+      ]);
+      
+      const usersData = await usersRes.json();
+      const tiersData = await tiersRes.json();
+      
+      if (usersData.success) setUsers(usersData.data);
+      if (tiersData.success) setTiers(tiersData.data);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleEditTier = (tier: Tier) => {
-    setSelectedTier(tier);
-    setIsTierModalOpen(true);
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // DELETE FUNCTIONS
+  const handleDeleteUser = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this user?')) return;
+    try {
+      await fetch(`http://localhost:3001/api/users/${id}`, { method: 'DELETE' });
+      fetchData(); // Refresh list
+    } catch (error) {
+      console.error('Error deleting user:', error);
+    }
   };
+
+  const handleDeleteTier = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this tier?')) return;
+    try {
+      await fetch(`http://localhost:3001/api/tiers/${id}`, { method: 'DELETE' });
+      fetchData(); // Refresh list
+    } catch (error) {
+      console.error('Error deleting tier:', error);
+    }
+  };
+
+  const filteredUsers = users.filter((user) =>
+    user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredTiers = tiers.filter((tier) =>
+    tier.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const handleAddNew = () => {
     if (activeView === 'users') {
@@ -127,9 +112,7 @@ export default function UsersPage() {
               <button
                 onClick={() => setActiveView('users')}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeView === 'users'
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-gray-600 hover:bg-gray-50'
+                  activeView === 'users' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
                 }`}
               >
                 Users
@@ -137,9 +120,7 @@ export default function UsersPage() {
               <button
                 onClick={() => setActiveView('tiers')}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeView === 'tiers'
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-gray-600 hover:bg-gray-50'
+                  activeView === 'tiers' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
                 }`}
               >
                 Tiers
@@ -168,74 +149,55 @@ export default function UsersPage() {
           </div>
         </div>
 
-        {activeView === 'users' ? (
+        {isLoading ? (
+          <div className="p-8 text-center text-gray-500">Loading data from database...</div>
+        ) : activeView === 'users' ? (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Phone
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tier
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Joined
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tier</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUsers.map((user) => (
+                {filteredUsers.length === 0 ? (
+                  <tr><td colSpan={7} className="p-4 text-center text-gray-500">No users found.</td></tr>
+                ) : filteredUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{user.full_name}</div>
+                      <div className="font-medium text-gray-900">{user.name}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-gray-600">{user.email}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-gray-600">{user.phone}</div>
+                      <div className="text-gray-600">{user.phone || '-'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                        {user.tier_name}
+                        {user.tier ? user.tier.name : 'No Tier'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.is_active
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}
-                      >
-                        {user.is_active ? 'Active' : 'Inactive'}
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        {user.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                      {new Date(user.created_at).toLocaleDateString()}
+                      {new Date(user.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => handleEditUser(user)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
+                        <button onClick={() => { setSelectedUser(user); setIsUserModalOpen(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                           <Edit className="w-4 h-4" />
                         </button>
-                        <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                        <button onClick={() => handleDeleteUser(user.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -250,25 +212,19 @@ export default function UsersPage() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tier Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Description
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Price
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Users
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tier Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Users</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredTiers.map((tier) => (
+                 {filteredTiers.length === 0 ? (
+                  <tr><td colSpan={5} className="p-4 text-center text-gray-500">No tiers found.</td></tr>
+                ) : filteredTiers.map((tier) => {
+                  const userCount = users.filter(u => u.tier?.id === tier.id).length;
+                  return (
                   <tr key={tier.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="font-medium text-gray-900">{tier.name}</div>
@@ -277,30 +233,25 @@ export default function UsersPage() {
                       <div className="text-gray-600">{tier.description}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-gray-900 font-semibold">
-                        ${tier.price.toFixed(2)}/mo
-                      </div>
+                      <div className="text-gray-900 font-semibold">₹{tier.price.toFixed(2)}/mo</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
-                        {tier.user_count} users
+                        {userCount} users
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => handleEditTier(tier)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
+                        <button onClick={() => { setSelectedTier(tier); setIsTierModalOpen(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                           <Edit className="w-4 h-4" />
                         </button>
-                        <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                        <button onClick={() => handleDeleteTier(tier.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>
@@ -310,6 +261,7 @@ export default function UsersPage() {
       {isUserModalOpen && (
         <UserModal
           user={selectedUser}
+          tiers={tiers} // Pass the fetched tiers!
           onClose={() => {
             setIsUserModalOpen(false);
             setSelectedUser(null);
@@ -317,6 +269,7 @@ export default function UsersPage() {
           onSave={() => {
             setIsUserModalOpen(false);
             setSelectedUser(null);
+            fetchData(); // Refresh table
           }}
         />
       )}
@@ -331,6 +284,7 @@ export default function UsersPage() {
           onSave={() => {
             setIsTierModalOpen(false);
             setSelectedTier(null);
+            fetchData(); // Refresh table
           }}
         />
       )}

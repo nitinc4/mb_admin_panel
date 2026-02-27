@@ -1,23 +1,13 @@
 import express from 'express';
- 
+import User from '../models/User.js';
 
 const router = express.Router();
 
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('users')
-      .select(`
-        *,
-        user_tiers (
-          id,
-          name,
-          price
-        )
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
+    const data = await User.find()
+      .populate('tier', 'id name price')
+      .sort({ createdAt: -1 });
 
     res.json({ success: true, data });
   } catch (error) {
@@ -27,20 +17,9 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('users')
-      .select(`
-        *,
-        user_tiers (
-          id,
-          name,
-          price
-        )
-      `)
-      .eq('id', req.params.id)
-      .maybeSingle();
+    const data = await User.findById(req.params.id)
+      .populate('tier', 'id name price');
 
-    if (error) throw error;
     if (!data) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
@@ -55,22 +34,14 @@ router.post('/', async (req, res) => {
   try {
     const { email, full_name, phone, fcm_token, tier_id, is_active } = req.body;
 
-    const { data, error } = await supabase
-      .from('users')
-      .insert([
-        {
-          email,
-          full_name,
-          phone: phone || '',
-          fcm_token: fcm_token || '',
-          tier_id: tier_id || null,
-          is_active: is_active !== undefined ? is_active : true,
-        },
-      ])
-      .select()
-      .single();
-
-    if (error) throw error;
+    const data = await User.create({
+      email,
+      name: full_name, // Mapping full_name to name as per your User model
+      phone: phone || '',
+      fcm_token: fcm_token || null,
+      tier: tier_id || null, // Using 'tier' reference
+      isActive: is_active !== undefined ? is_active : true, // Map to camelCase
+    });
 
     res.status(201).json({ success: true, data });
   } catch (error) {
@@ -82,22 +53,22 @@ router.put('/:id', async (req, res) => {
   try {
     const { email, full_name, phone, fcm_token, tier_id, is_active } = req.body;
 
-    const { data, error } = await supabase
-      .from('users')
-      .update({
+    const data = await User.findByIdAndUpdate(
+      req.params.id,
+      {
         email,
-        full_name,
+        name: full_name,
         phone,
         fcm_token,
-        tier_id,
-        is_active,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', req.params.id)
-      .select()
-      .single();
+        tier: tier_id,
+        isActive: is_active,
+      },
+      { new: true, runValidators: true }
+    ).populate('tier', 'id name price');
 
-    if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
 
     res.json({ success: true, data });
   } catch (error) {
@@ -107,12 +78,11 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
-    const { error } = await supabase
-      .from('users')
-      .delete()
-      .eq('id', req.params.id);
-
-    if (error) throw error;
+    const data = await User.findByIdAndDelete(req.params.id);
+    
+    if (!data) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
 
     res.json({ success: true, message: 'User deleted successfully' });
   } catch (error) {

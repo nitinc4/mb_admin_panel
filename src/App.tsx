@@ -24,7 +24,7 @@ function AppContent() {
       case 'appointments':
         return <AppointmentsPage />;
       case 'billing':
-        return <PlaceholderPage title="Billing" />;
+        return <BillingPage />;
       case 'settings':
         return <SettingsPage />;
       default:

@@ -4,10 +4,20 @@ const batchSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String },
   instructor: { type: String, default: 'Head Acharya' },
-  // If a user has a Tier listed here, they automatically get access to this batch
   allowedTiers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tier' }],
   price: { type: Number, default: 0 },
-  isActive: { type: Boolean, default: true }
-}, { timestamps: true });
+  isActive: { type: Boolean, default: true },
+  start_date: { type: Date },
+  end_date: { type: Date }
+}, { 
+  timestamps: true,
+  toJSON: {
+    virtuals: true,
+    versionKey: false,
+    transform: function (doc, ret) {
+      delete ret._id;
+    }
+  }
+});
 
 export default mongoose.model('Batch', batchSchema);

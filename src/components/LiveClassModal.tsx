@@ -1,54 +1,76 @@
 import { useState, useEffect } from 'react';
 import { X, Video } from 'lucide-react';
 
+interface Batch {
+  id: string;
+  name: string;
+}
+
 interface LiveClass {
   id: string;
-  batch_id: string;
-  batch_name: string;
+  batch: Batch;
   title: string;
-  scheduled_at: string | null;
+  scheduledAt: string | null;
   duration: number;
 }
 
 interface LiveClassModalProps {
   liveClass: LiveClass | null;
+  batches: Batch[]; // <-- Real batches from the database
   onClose: () => void;
   onSave: () => void;
 }
 
-const mockBatches = [
-  { id: '1', name: 'Advanced JavaScript 2024' },
-  { id: '2', name: 'React Masterclass' },
-  { id: '3', name: 'Node.js Backend Development' },
-];
-
-export default function LiveClassModal({ liveClass, onClose, onSave }: LiveClassModalProps) {
+export default function LiveClassModal({ liveClass, batches, onClose, onSave }: LiveClassModalProps) {
   const [formData, setFormData] = useState({
     batch_id: '',
     title: '',
     scheduled_at: '',
     duration: 60,
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (liveClass) {
       setFormData({
-        batch_id: liveClass.batch_id,
+        batch_id: liveClass.batch.id,
         title: liveClass.title,
-        scheduled_at: liveClass.scheduled_at
-          ? new Date(liveClass.scheduled_at).toISOString().slice(0, 16)
+        scheduled_at: liveClass.scheduledAt
+          ? new Date(liveClass.scheduledAt).toISOString().slice(0, 16)
           : '',
         duration: liveClass.duration,
       });
     }
   }, [liveClass]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave();
+    setIsSubmitting(true);
+
+    try {
+      const url = liveClass 
+        ? `http://localhost:3001/api/live-classes/${liveClass.id}` 
+        : 'http://localhost:3001/api/live-classes';
+
+      const response = await fetch(url, {
+        method: liveClass ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        onSave();
+      } else {
+        console.error('Failed to save live class');
+      }
+    } catch (error) {
+      console.error('Error saving live class:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const selectedBatch = mockBatches.find((b) => b.id === formData.batch_id);
+  const selectedBatch = batches.find((b) => b.id === formData.batch_id);
   const generatedMeetingId = selectedBatch
     ? `MantrikaBrahma_${selectedBatch.name.replace(/\s+/g, '_')}_${Date.now()}`
     : '';
@@ -65,49 +87,36 @@ export default function LiveClassModal({ liveClass, onClose, onSave }: LiveClass
               {liveClass ? 'Edit Live Class' : 'Schedule New Live Class'}
             </h2>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Select Batch
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Select Batch</label>
             <select
               value={formData.batch_id}
-              onChange={(e) =>
-                setFormData({ ...formData, batch_id: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, batch_id: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             >
               <option value="">Choose a batch...</option>
-              {mockBatches.map((batch) => (
-                <option key={batch.id} value={batch.id}>
+              {batches.map((batch: any) => (
+                <option key={batch.id || batch._id} value={batch.id || batch._id}>
                   {batch.name}
                 </option>
               ))}
             </select>
-            <p className="text-xs text-gray-500 mt-1">
-              Only users in the selected batch will be able to join this live class
-            </p>
+            <p className="text-xs text-gray-500 mt-1">Only users in the selected batch will be able to join this live class</p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Class Title
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Class Title</label>
             <input
               type="text"
               value={formData.title}
-              onChange={(e) =>
-                setFormData({ ...formData, title: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               placeholder="e.g., Live Class - Introduction to React Hooks"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
@@ -116,29 +125,21 @@ export default function LiveClassModal({ liveClass, onClose, onSave }: LiveClass
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Scheduled Time
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Time</label>
               <input
                 type="datetime-local"
                 value={formData.scheduled_at}
-                onChange={(e) =>
-                  setFormData({ ...formData, scheduled_at: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, scheduled_at: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Duration (minutes)
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Duration (minutes)</label>
               <input
                 type="number"
                 value={formData.duration}
-                onChange={(e) =>
-                  setFormData({ ...formData, duration: parseInt(e.target.value) })
-                }
+                onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
                 min="15"
                 step="15"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -153,36 +154,23 @@ export default function LiveClassModal({ liveClass, onClose, onSave }: LiveClass
               <div className="space-y-2 text-sm">
                 <div>
                   <span className="text-blue-700 font-medium">Meeting ID:</span>
-                  <p className="text-blue-900 font-mono text-xs mt-1 break-all">
-                    {generatedMeetingId}
-                  </p>
+                  <p className="text-blue-900 font-mono text-xs mt-1 break-all">{generatedMeetingId}</p>
                 </div>
                 <div>
                   <span className="text-blue-700 font-medium">Meeting URL:</span>
-                  <p className="text-blue-900 font-mono text-xs mt-1 break-all">
-                    https://meet.jit.si/{generatedMeetingId}
-                  </p>
+                  <p className="text-blue-900 font-mono text-xs mt-1 break-all">https://meet.jit.si/{generatedMeetingId}</p>
                 </div>
               </div>
-              <p className="text-xs text-blue-700 mt-3">
-                This URL will be automatically generated and shared with students in the selected batch
-              </p>
+              <p className="text-xs text-blue-700 mt-3">This URL will be automatically generated and shared with students in the selected batch</p>
             </div>
           )}
 
           <div className="flex gap-3 pt-4 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            >
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
               Cancel
             </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              {liveClass ? 'Update Live Class' : 'Schedule Live Class'}
+            <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
+               {isSubmitting ? 'Saving...' : (liveClass ? 'Update Live Class' : 'Schedule Live Class')}
             </button>
           </div>
         </form>

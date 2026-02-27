@@ -1,17 +1,12 @@
 import express from 'express';
- 
+import ContentItem from '../models/ContentItem.js';
 
 const router = express.Router();
 
 router.get('/batch/:batchId', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('content_items')
-      .select('*')
-      .eq('batch_id', req.params.batchId)
-      .order('order_index', { ascending: true });
-
-    if (error) throw error;
+    const data = await ContentItem.find({ batch: req.params.batchId })
+      .sort({ orderIndex: 1 });
 
     res.json({ success: true, data });
   } catch (error) {
@@ -21,13 +16,8 @@ router.get('/batch/:batchId', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('content_items')
-      .select('*')
-      .eq('id', req.params.id)
-      .maybeSingle();
+    const data = await ContentItem.findById(req.params.id);
 
-    if (error) throw error;
     if (!data) {
       return res.status(404).json({ success: false, error: 'Content not found' });
     }
@@ -41,15 +31,8 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const {
-      batch_id,
-      title,
-      description,
-      content_type,
-      file_url,
-      duration,
-      file_size,
-      order_index,
-      is_published,
+      batch_id, title, description, content_type, file_url,
+      duration, file_size, order_index, is_published,
     } = req.body;
 
     let finalFileUrl = file_url;
@@ -65,25 +48,17 @@ router.post('/', async (req, res) => {
       }
     }
 
-    const { data, error } = await supabase
-      .from('content_items')
-      .insert([
-        {
-          batch_id,
-          title,
-          description: description || '',
-          content_type,
-          file_url: finalFileUrl,
-          duration: duration || 0,
-          file_size: file_size || 0,
-          order_index: order_index !== undefined ? order_index : 0,
-          is_published: is_published !== undefined ? is_published : true,
-        },
-      ])
-      .select()
-      .single();
-
-    if (error) throw error;
+    const data = await ContentItem.create({
+      batch: batch_id,
+      title,
+      description: description || '',
+      contentType: content_type,
+      fileUrl: finalFileUrl,
+      duration: duration || 0,
+      fileSize: file_size || 0,
+      orderIndex: order_index !== undefined ? order_index : 0,
+      isPublished: is_published !== undefined ? is_published : true,
+    });
 
     res.status(201).json({ success: true, data });
   } catch (error) {
@@ -94,34 +69,28 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const {
-      title,
-      description,
-      content_type,
-      file_url,
-      duration,
-      file_size,
-      order_index,
-      is_published,
+      title, description, content_type, file_url, duration,
+      file_size, order_index, is_published,
     } = req.body;
 
-    const { data, error } = await supabase
-      .from('content_items')
-      .update({
+    const data = await ContentItem.findByIdAndUpdate(
+      req.params.id,
+      {
         title,
         description,
-        content_type,
-        file_url,
+        contentType: content_type,
+        fileUrl: file_url,
         duration,
-        file_size,
-        order_index,
-        is_published,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', req.params.id)
-      .select()
-      .single();
+        fileSize: file_size,
+        orderIndex: order_index,
+        isPublished: is_published,
+      },
+      { new: true, runValidators: true }
+    );
 
-    if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ success: false, error: 'Content not found' });
+    }
 
     res.json({ success: true, data });
   } catch (error) {
@@ -131,12 +100,11 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
-    const { error } = await supabase
-      .from('content_items')
-      .delete()
-      .eq('id', req.params.id);
+    const data = await ContentItem.findByIdAndDelete(req.params.id);
 
-    if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ success: false, error: 'Content not found' });
+    }
 
     res.json({ success: true, message: 'Content deleted successfully' });
   } catch (error) {
@@ -146,18 +114,13 @@ router.delete('/:id', async (req, res) => {
 
 router.post('/:id/stream-url', async (req, res) => {
   try {
-    const { data: content, error } = await supabase
-      .from('content_items')
-      .select('*')
-      .eq('id', req.params.id)
-      .maybeSingle();
+    const content = await ContentItem.findById(req.params.id);
 
-    if (error) throw error;
     if (!content) {
       return res.status(404).json({ success: false, error: 'Content not found' });
     }
 
-    const streamUrl = content.file_url;
+    const streamUrl = content.fileUrl;
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     res.json({
@@ -165,7 +128,7 @@ router.post('/:id/stream-url', async (req, res) => {
       data: {
         stream_url: streamUrl,
         expires_at: expiresAt.toISOString(),
-        content_type: content.content_type,
+        content_type: content.contentType,
         duration: content.duration,
       },
     });

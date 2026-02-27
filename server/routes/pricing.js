@@ -1,5 +1,5 @@
 import express from 'express';
- 
+import PricingConfig from '../models/PricingConfig.js';
 
 const router = express.Router();
 
@@ -7,26 +7,12 @@ router.get('/', async (req, res) => {
   try {
     const { entity_type, entity_id, is_active } = req.query;
 
-    let query = supabase
-      .from('pricing_config')
-      .select('*')
-      .order('created_at', { ascending: false });
+    let query = {};
+    if (entity_type) query.entityType = entity_type;
+    if (entity_id) query.entityId = entity_id;
+    if (is_active !== undefined) query.isActive = is_active === 'true';
 
-    if (entity_type) {
-      query = query.eq('entity_type', entity_type);
-    }
-
-    if (entity_id) {
-      query = query.eq('entity_id', entity_id);
-    }
-
-    if (is_active !== undefined) {
-      query = query.eq('is_active', is_active === 'true');
-    }
-
-    const { data, error } = await query;
-
-    if (error) throw error;
+    const data = await PricingConfig.find(query).sort({ createdAt: -1 });
 
     res.json({ success: true, data });
   } catch (error) {
@@ -36,13 +22,8 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('pricing_config')
-      .select('*')
-      .eq('id', req.params.id)
-      .maybeSingle();
+    const data = await PricingConfig.findById(req.params.id);
 
-    if (error) throw error;
     if (!data) {
       return res.status(404).json({ success: false, error: 'Pricing config not found' });
     }
@@ -57,21 +38,13 @@ router.post('/', async (req, res) => {
   try {
     const { entity_type, entity_id, price, billing_cycle } = req.body;
 
-    const { data, error } = await supabase
-      .from('pricing_config')
-      .insert([
-        {
-          entity_type,
-          entity_id,
-          price,
-          billing_cycle: billing_cycle || 'one_time',
-          is_active: true,
-        },
-      ])
-      .select()
-      .single();
-
-    if (error) throw error;
+    const data = await PricingConfig.create({
+      entityType: entity_type,
+      entityId: entity_id,
+      price,
+      billingCycle: billing_cycle || 'one_time',
+      isActive: true,
+    });
 
     res.status(201).json({ success: true, data });
   } catch (error) {
@@ -83,22 +56,18 @@ router.put('/:id', async (req, res) => {
   try {
     const { price, billing_cycle, is_active } = req.body;
 
-    const updateData = {
-      updated_at: new Date().toISOString(),
-    };
-
+    const updateData = {};
     if (price !== undefined) updateData.price = price;
-    if (billing_cycle) updateData.billing_cycle = billing_cycle;
-    if (is_active !== undefined) updateData.is_active = is_active;
+    if (billing_cycle) updateData.billingCycle = billing_cycle;
+    if (is_active !== undefined) updateData.isActive = is_active;
 
-    const { data, error } = await supabase
-      .from('pricing_config')
-      .update(updateData)
-      .eq('id', req.params.id)
-      .select()
-      .single();
+    const data = await PricingConfig.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true, runValidators: true }
+    );
 
-    if (error) throw error;
+    if (!data) return res.status(404).json({ success: false, error: 'Pricing config not found' });
 
     res.json({ success: true, data });
   } catch (error) {
@@ -108,12 +77,9 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
-    const { error } = await supabase
-      .from('pricing_config')
-      .delete()
-      .eq('id', req.params.id);
+    const data = await PricingConfig.findByIdAndDelete(req.params.id);
 
-    if (error) throw error;
+    if (!data) return res.status(404).json({ success: false, error: 'Pricing config not found' });
 
     res.json({ success: true, message: 'Pricing config deleted successfully' });
   } catch (error) {
