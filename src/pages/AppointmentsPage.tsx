@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, X, Calendar, Clock, User, DollarSign, Check } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+ 
 
 interface Service {
   id: string;

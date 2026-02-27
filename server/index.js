@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import connectDB from './config/db.js'; // <-- ADD THIS IMPORT
+
 import userRoutes from './routes/users.js';
 import tierRoutes from './routes/tiers.js';
 import batchRoutes from './routes/batches.js';
@@ -14,6 +16,9 @@ import { startPaymentCheckCron } from './jobs/payment-check-cron.js';
 
 dotenv.config();
 
+// <-- ADD THIS TO CONNECT TO DB -->
+connectDB(); 
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -21,7 +26,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Admin Dashboard API is running' });
+  res.json({ status: 'ok', message: 'Admin Dashboard API is running', database: 'MongoDB Connected' });
 });
 
 app.use('/api/users', userRoutes);
