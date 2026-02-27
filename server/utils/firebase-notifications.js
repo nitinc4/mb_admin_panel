@@ -1,79 +1,55 @@
-export async function sendPushNotification(fcmToken, title, body, data = {}) {
-  try {
-    console.log(`[FCM] Sending notification to ${fcmToken}`);
-    console.log(`[FCM] Title: ${title}`);
-    console.log(`[FCM] Body: ${body}`);
-    console.log(`[FCM] Data:`, data);
+import admin from 'firebase-admin';
+import fs from 'fs';
+import path from 'path';
 
-    return { success: true, message: 'Notification sent' };
-  } catch (error) {
-    console.error('[FCM] Error sending notification:', error);
-    return { success: false, error: error.message };
-  }
-}
+// IMPORTANT: Download your service account JSON from Firebase Console -> Project Settings -> Service Accounts
+// and place it in the root of your server folder named 'firebase-service-account.json'
+const serviceAccountPath = path.resolve('./firebase-service-account.json');
 
-export async function sendPaymentReminder(user, payment) {
-  if (!user?.fcm_token) {
-    console.log('[FCM] No FCM token for user');
-    return;
-  }
+let isFirebaseReady = false;
 
-  const daysOverdue = Math.floor((Date.now() - new Date(payment.due_date).getTime()) / (1000 * 60 * 60 * 24));
-  const title = daysOverdue > 0 ? 'Payment Overdue' : 'Payment Due Soon';
-  const body =
-    daysOverdue > 0
-      ? `Your payment of ₹${payment.amount} is ${daysOverdue} days overdue`
-      : `Your payment of ₹${payment.amount} is due on ${new Date(payment.due_date).toLocaleDateString('en-IN')}`;
-
-  await sendPushNotification(user.fcm_token, title, body, {
-    paymentId: payment.id,
-    amount: payment.amount.toString(),
-    type: payment.payment_type,
+if (fs.existsSync(serviceAccountPath)) {
+  const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
   });
+  isFirebaseReady = true;
+  console.log('✅ Firebase Admin SDK Initialized Successfully');
+} else {
+  console.warn('⚠️ Firebase Service Account JSON not found. Push notifications will be simulated.');
 }
 
-export async function sendAccessRevokedNotification(user, accessType) {
-  if (!user?.fcm_token) {
-    console.log('[FCM] No FCM token for user');
-    return;
+/**
+ * Send a notification to multiple FCM tokens
+ */
+export const sendPushNotification = async (tokens, title, body, imageUrl = null, data = {}) => {
+  if (!tokens || tokens.length === 0) return;
+
+  // Filter out empty or null tokens
+  const validTokens = tokens.filter(t => t && t.trim() !== '');
+  if (validTokens.length === 0) return;
+
+  const message = {
+    notification: {
+      title,
+      body,
+      ...(imageUrl && { imageUrl })
+    },
+    data: {
+      ...data,
+      click_action: 'FLUTTER_NOTIFICATION_CLICK' // Standard for Flutter handling
+    },
+    tokens: validTokens
+  };
+
+  if (isFirebaseReady) {
+    try {
+      const response = await admin.messaging().sendEachForMulticast(message);
+      console.log(`FCM Sent: ${response.successCount} successful, ${response.failureCount} failed.`);
+    } catch (error) {
+      console.error('Error sending FCM:', error);
+    }
+  } else {
+    console.log(`[SIMULATED PUSH] Title: "${title}" | Sent to ${validTokens.length} devices.`);
   }
-
-  const title = 'Access Suspended';
-  const body = `Your ${accessType} access has been suspended due to non-payment. Please complete your payment to restore access.`;
-
-  await sendPushNotification(user.fcm_token, title, body, {
-    accessType,
-    action: 'payment_required',
-  });
-}
-
-export async function sendPaymentSuccessNotification(user, payment) {
-  if (!user?.fcm_token) {
-    console.log('[FCM] No FCM token for user');
-    return;
-  }
-
-  const title = 'Payment Successful';
-  const body = `Your payment of ₹${payment.amount} has been processed successfully.`;
-
-  await sendPushNotification(user.fcm_token, title, body, {
-    paymentId: payment.id,
-    status: 'completed',
-  });
-}
-
-export async function sendSubscriptionRenewalNotification(user, subscription) {
-  if (!user?.fcm_token) {
-    console.log('[FCM] No FCM token for user');
-    return;
-  }
-
-  const title = 'Subscription Renewing Soon';
-  const renewalDate = new Date(subscription.next_billing_date).toLocaleDateString('en-IN');
-  const body = `Your ${subscription.subscription_type} subscription will renew on ${renewalDate}.`;
-
-  await sendPushNotification(user.fcm_token, title, body, {
-    subscriptionId: subscription.id,
-    type: subscription.subscription_type,
-  });
-}
+};

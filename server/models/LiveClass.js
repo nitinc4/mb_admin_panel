@@ -10,7 +10,8 @@ const liveClassSchema = new mongoose.Schema({
   status: { type: String, enum: ['scheduled', 'live', 'ended'], default: 'scheduled' },
   isActive: { type: Boolean, default: true },
   startedAt: { type: Date },
-  endedAt: { type: Date }
+  endedAt: { type: Date },
+  reminderSent: { type: Boolean, default: false }
 }, { 
   timestamps: true,
   toJSON: {

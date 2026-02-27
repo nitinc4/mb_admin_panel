@@ -1,73 +1,52 @@
 import express from 'express';
 import Appointment from '../models/Appointment.js';
-import Service from '../models/Service.js';
 
 const router = express.Router();
 
 router.get('/', async (req, res) => {
   try {
-    // Populate replaces the supabase '*, users(*), services(*)' syntax
     const data = await Appointment.find()
-      .populate('user', 'id name email')
-      .populate('service', 'id name price')
+      .populate('user', 'name email phone')
       .sort({ scheduledAt: -1 });
-
     res.json({ success: true, data });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 router.post('/', async (req, res) => {
   try {
-    const { user_id, service_id, scheduled_at, notes } = req.body;
-
-    // Fetch the service to get the price for the payment_amount
-    const service = await Service.findById(service_id);
-    if (!service) return res.status(404).json({ success: false, error: 'Service not found' });
-
+    const { user_id, title, cost, scheduled_at, notes } = req.body;
+    
     let data = await Appointment.create({
       user: user_id,
-      service: service_id,
+      title: title || 'General Appointment',
+      cost: cost || 0,
+      paymentAmount: cost || 0,
       scheduledAt: scheduled_at,
-      notes,
-      status: 'pending',
-      isPaid: false,
-      paymentAmount: service.price // Auto-set from the service price
+      notes: notes || '',
+      status: 'pending'
     });
 
-    // Populate the response so the frontend kanban board can display names immediately
-    data = await data.populate(['user', 'service']);
-
+    data = await data.populate('user', 'name email phone');
     res.status(201).json({ success: true, data });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 router.put('/:id', async (req, res) => {
   try {
     const data = await Appointment.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    ).populate(['user', 'service']);
+      req.params.id, req.body, { returnDocument: 'after' }
+    ).populate('user', 'name email phone');
 
     if (!data) return res.status(404).json({ success: false, error: 'Appointment not found' });
     res.json({ success: true, data });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 router.delete('/:id', async (req, res) => {
   try {
-    const data = await Appointment.findByIdAndDelete(req.params.id);
-    if (!data) return res.status(404).json({ success: false, error: 'Appointment not found' });
-    res.json({ success: true, message: 'Appointment deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
+    await Appointment.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Deleted' });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 export default router;

@@ -5,7 +5,9 @@ import {
   Video,
   Calendar,
   DollarSign,
-  Settings
+  Settings,
+  Bell,
+  MessageSquare // <-- IMPORTED NEW ICON
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -22,6 +24,8 @@ const navItems: NavItem[] = [
   { id: 'live-classes', label: 'Live Classes', icon: Video },
   { id: 'appointments', label: 'Appointments', icon: Calendar },
   { id: 'billing', label: 'Billing', icon: DollarSign },
+  { id: 'messages', label: 'Messages', icon: MessageSquare }, // <-- ADDED MESSAGES TAB
+  { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
@@ -35,7 +39,7 @@ export default function Sidebar() {
         <p className="text-sm text-gray-500 mt-1">MantrikaBrahma</p>
       </div>
 
-      <nav className="flex-1 p-4">
+      <nav className="flex-1 p-4 overflow-y-auto">
         <ul className="space-y-2">
           {navItems.map((item) => {
             const Icon = item.icon;

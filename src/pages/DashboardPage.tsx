@@ -1,33 +1,101 @@
-import React, { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Users, BookOpen, IndianRupee, TrendingUp } from 'lucide-react';
 
-// Mock data for different time filters
-const mockRevenueData = {
-  'This Month': [
-    { name: 'Appointments', value: 15000 },
-    { name: 'Tiers/Groups', value: 45000 },
-    { name: 'Batches/Courses', value: 25000 },
-  ],
-  'This Year': [
-    { name: 'Appointments', value: 180000 },
-    { name: 'Tiers/Groups', value: 540000 },
-    { name: 'Batches/Courses', value: 320000 },
-  ],
-  'All Time': [
-    { name: 'Appointments', value: 450000 },
-    { name: 'Tiers/Groups', value: 1200000 },
-    { name: 'Batches/Courses', value: 850000 },
-  ],
-};
-
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b']; // Blue, Green, Yellow
+
+interface User { id: string; }
+interface Batch { id: string; isActive: boolean; }
+interface Payment {
+  id: string;
+  amount: number;
+  reason: string;
+  status: string;
+  paymentDate: string; // Used to filter by 'This Month' or 'This Year'
+}
 
 export default function DashboardPage() {
   const [timeFilter, setTimeFilter] = useState<'This Month' | 'This Year' | 'All Time'>('This Month');
+  
+  const [users, setUsers] = useState<User[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const currentData = mockRevenueData[timeFilter];
-  const totalRevenue = currentData.reduce((sum, item) => sum + item.value, 0);
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        // Fetch actual data from your connected MongoDB backend
+        const [usersRes, batchesRes, paymentsRes] = await Promise.all([
+          fetch('http://localhost:3001/api/users'),
+          fetch('http://localhost:3001/api/batches'),
+          fetch('http://localhost:3001/api/payments'),
+        ]);
+
+        const usersData = await usersRes.json();
+        const batchesData = await batchesRes.json();
+        const paymentsData = await paymentsRes.json();
+
+        if (usersData.success) setUsers(usersData.data);
+        if (batchesData.success) setBatches(batchesData.data);
+        if (paymentsData.success) setPayments(paymentsData.data);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  // Process data based on the selected time filter and group the revenue
+  const chartData = useMemo(() => {
+    const now = new Date();
+    let startDate = new Date(0); // Default to Jan 1, 1970 (All Time)
+
+    if (timeFilter === 'This Month') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else if (timeFilter === 'This Year') {
+      startDate = new Date(now.getFullYear(), 0, 1);
+    }
+
+    let appointmentsRevenue = 0;
+    let tiersRevenue = 0;
+    let otherRevenue = 0;
+
+    payments.forEach((payment) => {
+      // Only count successfully paid invoices
+      if (payment.status === 'paid' && payment.paymentDate) {
+        const pDate = new Date(payment.paymentDate);
+        
+        // Check if the payment falls within the selected time filter
+        if (pDate >= startDate) {
+          if (payment.reason?.startsWith('Appointment')) {
+            appointmentsRevenue += payment.amount;
+          } else if (payment.reason?.startsWith('Subscription')) {
+            tiersRevenue += payment.amount;
+          } else {
+            otherRevenue += payment.amount; // Manual payments, future batch purchases, etc.
+          }
+        }
+      }
+    });
+
+    return [
+      { name: 'Appointments', value: appointmentsRevenue },
+      { name: 'Tiers/Subscriptions', value: tiersRevenue },
+      { name: 'Other/Batches', value: otherRevenue },
+    ];
+  }, [payments, timeFilter]);
+
+  const totalRevenue = chartData.reduce((sum, item) => sum + item.value, 0);
+  const activeBatchesCount = batches.filter(b => b.isActive).length;
+
+  if (loading) {
+    return <div className="p-8 text-gray-500">Loading dashboard data...</div>;
+  }
 
   return (
     <div className="p-8">
@@ -41,7 +109,7 @@ export default function DashboardPage() {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-gray-500 mb-1">Total Users</p>
-            <h3 className="text-2xl font-bold text-gray-800">1,248</h3>
+            <h3 className="text-2xl font-bold text-gray-800">{users.length}</h3>
           </div>
           <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600">
             <Users size={24} />
@@ -51,7 +119,7 @@ export default function DashboardPage() {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-gray-500 mb-1">Active Batches</p>
-            <h3 className="text-2xl font-bold text-gray-800">12</h3>
+            <h3 className="text-2xl font-bold text-gray-800">{activeBatchesCount}</h3>
           </div>
           <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center text-green-600">
             <BookOpen size={24} />
@@ -60,8 +128,8 @@ export default function DashboardPage() {
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">Total Revenue ({timeFilter})</p>
-            <h3 className="text-2xl font-bold text-gray-800">₹{totalRevenue.toLocaleString()}</h3>
+            <p className="text-sm font-medium text-gray-500 mb-1">Revenue ({timeFilter})</p>
+            <h3 className="text-2xl font-bold text-gray-800">₹{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
           </div>
           <div className="w-12 h-12 bg-yellow-50 rounded-full flex items-center justify-center text-yellow-600">
             <IndianRupee size={24} />
@@ -89,32 +157,38 @@ export default function DashboardPage() {
         </div>
 
         <div className="h-[400px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={currentData}
-                cx="50%"
-                cy="50%"
-                innerRadius={100}
-                outerRadius={140}
-                paddingAngle={5}
-                dataKey="value"
-              >
-                {currentData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip 
-                formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Revenue']}
-                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-              />
-              <Legend 
-                verticalAlign="bottom" 
-                height={36}
-                iconType="circle"
-              />
-            </PieChart>
-          </ResponsiveContainer>
+          {totalRevenue === 0 ? (
+            <div className="flex items-center justify-center h-full text-gray-400 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
+              No revenue collected for this period yet.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={chartData.filter(d => d.value > 0)} // Only render slices that have revenue
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={100}
+                  outerRadius={140}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {chartData.filter(d => d.value > 0).map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Revenue']}
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                />
+                <Legend 
+                  verticalAlign="bottom" 
+                  height={36}
+                  iconType="circle"
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
     </div>

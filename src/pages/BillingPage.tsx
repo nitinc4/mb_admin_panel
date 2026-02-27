@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Calendar, IndianRupee, AlertCircle, CheckCircle, ShieldAlert } from 'lucide-react';
+
+import { Search, Plus, Calendar, IndianRupee, AlertCircle, CheckCircle, ShieldAlert, Trash2 } from 'lucide-react';
 
 interface User { id: string; name: string; phone: string; isBlocked: boolean; }
 interface Payment {
@@ -22,7 +23,7 @@ export default function BillingPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [paymentsRes, usersRes] = await Promise.all([ fetch('http://localhost:3001/api/payments'), fetch('http://localhost:3001/api/users') ]);
+      const [paymentsRes, usersRes] = await Promise.all([fetch('http://localhost:3001/api/payments'), fetch('http://localhost:3001/api/users')]);
       const paymentsData = await paymentsRes.json();
       const usersData = await usersRes.json();
       if (paymentsData.success) setPayments(paymentsData.data);
@@ -38,11 +39,11 @@ export default function BillingPage() {
       const parsedDraft = JSON.parse(draft);
       setForm(prev => ({ ...prev, ...parsedDraft }));
       setActiveTab('add');
-      
+
       // Auto-fill the search box text to look nice
       const draftUser = users.find(u => u.id === parsedDraft.user_id);
       if (draftUser) setSearchTerm(`${draftUser.name} - ${draftUser.phone}`);
-      
+
       localStorage.removeItem('draftPayment');
     }
   }, [users.length]); // Re-run effect once users are loaded so draft lookup works
@@ -83,15 +84,25 @@ export default function BillingPage() {
     } catch (error) { console.error(error); }
   };
 
+  const handleDeletePayment = async (paymentId: string) => {
+    if (!window.confirm("Are you sure you want to delete this payment record permanently?")) return;
+    try {
+      const res = await fetch(`http://localhost:3001/api/payments/${paymentId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setPayments(payments.filter(p => p.id !== paymentId));
+      }
+    } catch (error) { console.error("Failed to delete payment:", error); }
+  };
+
   const filteredUsers = users.filter(u => u.phone?.includes(searchTerm) || (u.name || '').toLowerCase().includes(searchTerm.toLowerCase()));
-// Because the tab is called "history" but the DB status is "paid"
+  // Because the tab is called "history" but the DB status is "paid"
   const currentPayments = payments.filter(p => activeTab === 'history' ? p.status === 'paid' : p.status === activeTab);
   if (loading) return <div className="p-8 text-gray-500">Loading Billing...</div>;
 
   return (
     <div className="p-8">
       <div className="mb-6"><h1 className="text-3xl font-bold text-gray-800">Billing & Payments</h1></div>
-      
+
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="flex border-b border-gray-200 overflow-x-auto">
           {['upcoming', 'due', 'history', 'add'].map((tab) => (
@@ -108,12 +119,12 @@ export default function BillingPage() {
                 <label className="block text-sm font-medium mb-1">Customer Search (Phone/Name)</label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input type="text" value={searchTerm} onChange={(e) => {setSearchTerm(e.target.value); setShowDropdown(true);}} onFocus={() => setShowDropdown(true)} placeholder="Search to select..." className="w-full pl-9 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                  <input type="text" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }} onFocus={() => setShowDropdown(true)} placeholder="Search to select..." className="w-full pl-9 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
                 </div>
                 {showDropdown && searchTerm && (
                   <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                     {filteredUsers.map(u => (
-                      <div key={u.id} onClick={() => { setForm({...form, user_id: u.id}); setSearchTerm(`${u.name} - ${u.phone}`); setShowDropdown(false); }} className="p-3 hover:bg-blue-50 cursor-pointer border-b text-sm">
+                      <div key={u.id} onClick={() => { setForm({ ...form, user_id: u.id }); setSearchTerm(`${u.name} - ${u.phone}`); setShowDropdown(false); }} className="p-3 hover:bg-blue-50 cursor-pointer border-b text-sm">
                         <span className="font-medium">{u.name}</span> <span className="text-gray-500">({u.phone || 'No phone'})</span>
                       </div>
                     ))}
@@ -123,20 +134,20 @@ export default function BillingPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium mb-1">Amount (₹)</label><input type="number" value={form.amount} onChange={e => setForm({...form, amount: parseFloat(e.target.value)})} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required /></div>
-                <div><label className="block text-sm font-medium mb-1">Payment Type</label><select value={form.paymentType} onChange={e => setForm({...form, paymentType: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"><option value="upi">UPI</option><option value="cash">Cash</option><option value="card">Card</option><option value="bank_transfer">Bank Transfer</option></select></div>
+                <div><label className="block text-sm font-medium mb-1">Amount (₹)</label><input type="number" value={form.amount} onChange={e => setForm({ ...form, amount: parseFloat(e.target.value) })} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required /></div>
+                <div><label className="block text-sm font-medium mb-1">Payment Type</label><select value={form.paymentType} onChange={e => setForm({ ...form, paymentType: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"><option value="upi">UPI</option><option value="cash">Cash</option><option value="card">Card</option><option value="bank_transfer">Bank Transfer</option></select></div>
               </div>
 
-              <div><label className="block text-sm font-medium mb-1">Payment Reason</label><input type="text" value={form.reason} onChange={e => setForm({...form, reason: e.target.value})} placeholder="e.g., Monthly Tier, Appointment" className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required /></div>
-              
+              <div><label className="block text-sm font-medium mb-1">Payment Reason</label><input type="text" value={form.reason} onChange={e => setForm({ ...form, reason: e.target.value })} placeholder="e.g., Monthly Tier, Appointment" className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required /></div>
+
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium mb-1">Reference ID (Txn ID)</label><input type="text" value={form.referenceId} onChange={e => setForm({...form, referenceId: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" /></div>
-                <div><label className="block text-sm font-medium mb-1">Due / Payment Date</label><input type="date" value={form.dueDate} onChange={e => setForm({...form, dueDate: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required /></div>
+                <div><label className="block text-sm font-medium mb-1">Reference ID (Txn ID)</label><input type="text" value={form.referenceId} onChange={e => setForm({ ...form, referenceId: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" /></div>
+                <div><label className="block text-sm font-medium mb-1">Due / Payment Date</label><input type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required /></div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">Status</label>
-                <select value={form.status} onChange={e => setForm({...form, status: e.target.value as any})} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"><option value="paid">Already Paid</option><option value="upcoming">Upcoming/Invoice</option><option value="due">Overdue</option></select>
+                <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value as any })} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"><option value="paid">Already Paid</option><option value="upcoming">Upcoming/Invoice</option><option value="due">Overdue</option></select>
               </div>
 
               <button type="submit" className="w-full py-3 mt-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">Record Payment</button>
@@ -153,17 +164,21 @@ export default function BillingPage() {
                   </div>
                   <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-3 w-full md:w-auto">
                     <div className="text-lg font-bold text-gray-800">₹{payment.amount}</div>
-                    
+
                     {activeTab === 'due' && (
                       <div className="flex gap-2">
-                         <button onClick={() => handleMarkPaid(payment.id)} className="px-3 py-1.5 bg-green-100 text-green-700 hover:bg-green-200 text-xs font-bold rounded flex items-center gap-1 transition-colors"><CheckCircle size={14}/> Mark Paid</button>
-                         {!payment.user?.isBlocked && <button onClick={() => handleBlockUser(payment.user.id)} className="px-3 py-1.5 bg-red-100 text-red-700 hover:bg-red-200 text-xs font-bold rounded flex items-center gap-1 transition-colors"><ShieldAlert size={14}/> Block User</button>}
+                        <button onClick={() => handleMarkPaid(payment.id)} className="px-3 py-1.5 bg-green-100 text-green-700 hover:bg-green-200 text-xs font-bold rounded flex items-center gap-1 transition-colors"><CheckCircle size={14} /> Mark Paid</button>
+                        {!payment.user?.isBlocked && <button onClick={() => handleBlockUser(payment.user.id)} className="px-3 py-1.5 bg-red-100 text-red-700 hover:bg-red-200 text-xs font-bold rounded flex items-center gap-1 transition-colors"><ShieldAlert size={14} /> Block User</button>}
                       </div>
                     )}
-                    
+
                     {activeTab === 'upcoming' && <button onClick={() => handleMarkPaid(payment.id)} className="px-3 py-1.5 bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-bold rounded transition-colors">Record as Paid</button>}
-                    {activeTab === 'history' && <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded border border-gray-200">Paid via {payment.paymentType.toUpperCase()}</span>}
-                  </div>
+                    {activeTab === 'history' && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded border border-gray-200">Paid via {payment.paymentType.toUpperCase()}</span>
+                        <button onClick={() => handleDeletePayment(payment.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"><Trash2 size={16} /></button>
+                      </div>
+                    )}                  </div>
                 </div>
               ))}
             </div>

@@ -2,33 +2,32 @@ import { useEffect, useState } from 'react';
 import { Plus, X, Calendar, Clock, DollarSign, Check, ExternalLink } from 'lucide-react';
 import { useApp } from '../context/AppContext'; 
 
-interface Service { id: string; name: string; price: number; duration: number; }
 interface User { id: string; email: string; name: string; }
-interface Appointment { id: string; user: User; service: Service; scheduledAt: string; status: string; notes: string; isPaid: boolean; paymentAmount: number; }
+interface Appointment { id: string; user: User; title: string; cost: number; scheduledAt: string; status: string; notes: string; isPaid: boolean; paymentAmount: number; }
 
 export default function AppointmentsPage() {
-  const { setActiveTab } = useApp(); // To switch tabs automatically
+  const { setActiveTab } = useApp(); 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
 
-  const [form, setForm] = useState({ user_id: '', service_id: '', scheduled_at: new Date().toISOString().split('T')[0], scheduled_time: '10:00', notes: '' });
+  // Replaced service_id with title and cost
+  const [form, setForm] = useState({ user_id: '', title: '', cost: 0, scheduled_at: new Date().toISOString().split('T')[0], scheduled_time: '10:00', notes: '' });
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [apptsRes, servRes, usrRes] = await Promise.all([fetch('http://localhost:3001/api/appointments'), fetch('http://localhost:3001/api/services'), fetch('http://localhost:3001/api/users')]);
-      const appts = await apptsRes.json(); const serv = await servRes.json(); const usr = await usrRes.json();
-      if (appts.success) setAppointments(appts.data); if (serv.success) setServices(serv.data); if (usr.success) setUsers(usr.data);
+      const [apptsRes, usrRes] = await Promise.all([fetch('http://localhost:3001/api/appointments'), fetch('http://localhost:3001/api/users')]);
+      const appts = await apptsRes.json(); const usr = await usrRes.json();
+      if (appts.success) setAppointments(appts.data); if (usr.success) setUsers(usr.data);
     } catch (error) { console.error('Error:', error); } finally { setLoading(false); }
   };
 
   useEffect(() => { fetchData(); }, []);
 
   const handleCreateAppointment = async () => {
-    if (!form.user_id || !form.service_id) return;
+    if (!form.user_id || !form.title) return alert('User and Title are required');
     try {
       const scheduled_at = new Date(`${form.scheduled_at}T${form.scheduled_time}`).toISOString();
       const response = await fetch('http://localhost:3001/api/appointments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, scheduled_at }) });
@@ -37,20 +36,17 @@ export default function AppointmentsPage() {
       if (result.success) {
         setAppointments([result.data, ...appointments]);
         setShowModal(false);
+        setForm({ user_id: '', title: '', cost: 0, scheduled_at: new Date().toISOString().split('T')[0], scheduled_time: '10:00', notes: '' });
         
         // AUTO GENERATE UPCOMING INVOICE IN PAYMENTS SYSTEM
-        await fetch('http://localhost:3001/api/payments', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            user_id: form.user_id,
-            amount: result.data.paymentAmount,
-            reason: `Appointment - ${result.data.service.name}`,
-            dueDate: scheduled_at,
-            status: 'upcoming',
-            appointment_id: result.data.id
-          })
-        });
+        if (result.data.cost > 0) {
+          await fetch('http://localhost:3001/api/payments', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: form.user_id, amount: result.data.cost, reason: `Appointment - ${result.data.title}`, dueDate: scheduled_at, status: 'upcoming', appointment_id: result.data.id
+            })
+          });
+        }
       }
     } catch (error) { console.error(error); }
   };
@@ -63,20 +59,11 @@ export default function AppointmentsPage() {
     } catch (error) { console.error(error); }
   };
 
-  // REDIRECT TO BILLING WITH AUTO-FILL
   const handleRouteToPayment = (appointment: Appointment) => {
     const draftData = {
-      user_id: appointment.user.id,
-      amount: appointment.paymentAmount,
-      reason: `Appointment - ${appointment.service?.name || 'Service'}`,
-      dueDate: appointment.scheduledAt.split('T')[0],
-      status: 'paid'
+      user_id: appointment.user.id, amount: appointment.paymentAmount, reason: `Appointment - ${appointment.title}`, dueDate: appointment.scheduledAt.split('T')[0], status: 'paid'
     };
-    
-    // Save draft to local storage so the billing page can pick it up instantly
     localStorage.setItem('draftPayment', JSON.stringify(draftData));
-    
-    // Jump to the Billing Tab!
     setActiveTab('billing'); 
   };
 
@@ -114,7 +101,7 @@ export default function AppointmentsPage() {
               {appointments.filter(a => a.status === status).map(appointment => (
                 <div key={appointment.id} className="p-3 rounded-lg border-l-4 border-l-blue-500 bg-white shadow-sm hover:shadow-md transition-shadow">
                   <div className="mb-2">
-                    <p className="font-semibold text-gray-800 text-sm">{appointment.service?.name || 'Unknown Service'}</p>
+                    <p className="font-semibold text-gray-800 text-sm">{appointment.title}</p>
                     <p className="text-xs text-gray-600">{appointment.user?.name || 'Unknown User'}</p>
                   </div>
 
@@ -130,7 +117,7 @@ export default function AppointmentsPage() {
                   {appointment.notes && <p className="text-xs text-gray-600 mb-3 italic">"{appointment.notes}"</p>}
 
                   <div className="flex flex-col gap-2">
-                    {!appointment.isPaid && (
+                    {!appointment.isPaid && appointment.paymentAmount > 0 && (
                       <button onClick={() => handleRouteToPayment(appointment)} className="w-full px-2 py-1.5 text-xs bg-blue-50 text-blue-700 font-bold border border-blue-200 rounded hover:bg-blue-100 transition-colors flex items-center justify-center gap-1">
                         <ExternalLink size={12} /> Collect Payment
                       </button>
@@ -155,14 +142,17 @@ export default function AppointmentsPage() {
             <div className="flex items-center justify-between mb-4"><h2 className="text-xl font-bold text-gray-800">New Appointment</h2><button onClick={() => setShowModal(false)} className="p-1 text-gray-500 hover:text-gray-700"><X size={20} /></button></div>
             <div className="space-y-4">
               <div><label className="block text-sm font-medium mb-1">User *</label><select value={form.user_id} onChange={e => setForm({...form, user_id: e.target.value})} className="w-full px-3 py-2 border rounded-lg"><option value="">Select User</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select></div>
-              <div><label className="block text-sm font-medium mb-1">Service *</label><select value={form.service_id} onChange={e => setForm({...form, service_id: e.target.value})} className="w-full px-3 py-2 border rounded-lg"><option value="">Select Service</option>{services.map(s => <option key={s.id} value={s.id}>{s.name} (₹{s.price})</option>)}</select></div>
-              <div><label className="block text-sm font-medium mb-1">Date *</label><input type="date" value={form.scheduled_at} onChange={e => setForm({...form, scheduled_at: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div><label className="block text-sm font-medium mb-1">Time *</label><input type="time" value={form.scheduled_time} onChange={e => setForm({...form, scheduled_time: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div><label className="block text-sm font-medium mb-1">Notes</label><textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} className="w-full px-3 py-2 border rounded-lg" rows={3} /></div>
+              <div><label className="block text-sm font-medium mb-1">Appointment Title *</label><input type="text" placeholder="e.g. Health Consultation" value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="w-full px-3 py-2 border rounded-lg" required /></div>
+              <div><label className="block text-sm font-medium mb-1">Appointment Cost (₹) *</label><input type="number" placeholder="0 if free" value={form.cost} onChange={e => setForm({...form, cost: parseFloat(e.target.value)})} className="w-full px-3 py-2 border rounded-lg" required /></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className="block text-sm font-medium mb-1">Date *</label><input type="date" value={form.scheduled_at} onChange={e => setForm({...form, scheduled_at: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+                <div><label className="block text-sm font-medium mb-1">Time *</label><input type="time" value={form.scheduled_time} onChange={e => setForm({...form, scheduled_time: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              </div>
+              <div><label className="block text-sm font-medium mb-1">Notes</label><textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} className="w-full px-3 py-2 border rounded-lg" rows={2} /></div>
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">Cancel</button>
-              <button onClick={handleCreateAppointment} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Create & Generate Invoice</button>
+              <button onClick={handleCreateAppointment} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save</button>
             </div>
           </div>
         </div>
