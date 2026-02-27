@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import paymentRoutes from './routes/payments.js';
+import appApiRoutes from './routes/app-api.js';
 // All Route Imports
 import userRoutes from './routes/users.js';
 import tierRoutes from './routes/tiers.js';
@@ -39,7 +40,7 @@ app.use('/api/batches', batchRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/live-classes', liveClassesRoutes);
 app.use('/api/payments', paymentRoutes);
-
+app.use('/api/app', appApiRoutes);
 // <-- THESE 3 LINES FIX YOUR 404 ERRORS -->
 app.use('/api/services', servicesRoutes);
 app.use('/api/service-categories', serviceCategoriesRoutes);

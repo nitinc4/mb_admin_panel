@@ -1,10 +1,10 @@
 import express from 'express';
 import Payment from '../models/Payment.js';
 import User from '../models/User.js';
+import Tier from '../models/Tier.js';
 
 const router = express.Router();
 
-// Get all payments (can filter by status using ?status=upcoming)
 router.get('/', async (req, res) => {
   try {
     const { status } = req.query;
@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
     if (status) query.status = status;
 
     const data = await Payment.find(query)
-      .populate('user', 'id name email phone isBlocked')
+      .populate('user', 'id name email phone isBlocked billingCycle tier')
       .sort({ dueDate: 1 });
 
     res.json({ success: true, data });
@@ -21,21 +21,14 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Create a new manual payment
 router.post('/', async (req, res) => {
   try {
     const { user_id, amount, paymentType, reason, referenceId, paymentDate, dueDate, status, appointment_id } = req.body;
 
     let data = await Payment.create({
-      user: user_id,
-      amount,
-      paymentType: paymentType || 'cash',
-      reason,
-      referenceId: referenceId || '',
-      paymentDate: paymentDate || null,
-      dueDate,
-      status: status || 'upcoming',
-      appointment: appointment_id || null
+      user: user_id, amount, paymentType: paymentType || 'cash', reason,
+      referenceId: referenceId || '', paymentDate: paymentDate || null, dueDate,
+      status: status || 'upcoming', appointment: appointment_id || null
     });
 
     data = await data.populate('user', 'id name phone');
@@ -45,20 +38,49 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update a payment (Mark as paid)
 router.put('/:id', async (req, res) => {
   try {
     const data = await Payment.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    ).populate('user', 'id name phone');
+      req.params.id, req.body, { returnDocument: 'after' }
+    ).populate('user', 'id name phone isBlocked tier billingCycle');
 
     if (!data) return res.status(404).json({ success: false, error: 'Payment not found' });
     
-    // If they just paid an overdue bill, we should auto-unblock them!
     if (req.body.status === 'paid') {
+      // 1. Unblock User if they paid
       await User.findByIdAndUpdate(data.user._id, { isBlocked: false });
+
+      // 2. STAGE 3: THE RECURRING SUBSCRIPTION LOOP
+      if (data.reason.startsWith('Subscription -') && data.user.tier) {
+        const userCycle = data.user.billingCycle;
+        
+        if (userCycle !== 'lifetime') {
+          const tierInfo = await Tier.findById(data.user.tier);
+          
+          if (tierInfo) {
+            // Calculate next due date
+            const nextDue = new Date(data.dueDate);
+            if (userCycle === 'monthly') nextDue.setMonth(nextDue.getMonth() + 1);
+            if (userCycle === 'yearly') nextDue.setFullYear(nextDue.getFullYear() + 1);
+
+            const nextAmount = userCycle === 'monthly' ? tierInfo.monthlyPrice : tierInfo.yearlyPrice;
+
+            // Safety check: Don't create duplicate invoices
+            const existingNext = await Payment.findOne({ user: data.user._id, reason: data.reason, dueDate: nextDue });
+
+            if (!existingNext && nextAmount > 0) {
+              await Payment.create({
+                user: data.user._id,
+                amount: nextAmount,
+                paymentType: 'upi', 
+                reason: data.reason,
+                dueDate: nextDue,
+                status: 'upcoming'
+              });
+            }
+          }
+        }
+      }
     }
 
     res.json({ success: true, data });
