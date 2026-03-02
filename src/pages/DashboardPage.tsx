@@ -2,9 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Users, BookOpen, IndianRupee, TrendingUp } from 'lucide-react';
 import { API_URL } from '../config';
-import { useApp } from '../context/AppContext'; // <-- IMPORTED CONTEXT
+import { useApp } from '../context/AppContext';
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b']; // Blue, Green, Yellow
+const COLORS = ['#FF9800', '#FFEB3B', '#10b981']; // Primary Orange, Secondary Yellow, Green
 
 interface User { id: string; }
 interface Batch { id: string; isActive: boolean; }
@@ -14,12 +14,11 @@ interface Payment {
   amount: number;
   reason: string;
   status: string;
-  paymentDate: string; // Used to filter by 'This Month' or 'This Year'
+  paymentDate: string; 
 }
 
 export default function DashboardPage() {
-  const { setActiveTab } = useApp(); // <-- EXTRACTED SET ACTIVE TAB
-
+  const { setActiveTab } = useApp();
   const [timeFilter, setTimeFilter] = useState<'This Month' | 'This Year' | 'All Time'>('This Month');
   
   const [users, setUsers] = useState<User[]>([]);
@@ -75,7 +74,6 @@ export default function DashboardPage() {
         
         if (pDate >= startDate) {
           const reason = (payment.reason || '').toLowerCase();
-          
           if (reason.includes('appointment')) {
             appointmentsRevenue += payment.amount;
           } else if (reason.includes('tier') || reason.includes('subscription')) {
@@ -98,50 +96,49 @@ export default function DashboardPage() {
   const activeBatchesCount = batches.filter(b => b.isActive).length;
 
   if (loading) {
-    return <div className="p-8 text-gray-500">Loading dashboard data...</div>;
+    return <div className="p-8 text-gray-500 bg-cream min-h-full">Loading dashboard data...</div>;
   }
 
   return (
-    <div className="p-8">
+    <div className="p-8 bg-cream min-h-full">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
         <p className="text-gray-600 mt-1">Overview of your app's performance and revenue.</p>
       </div>
 
-      {/* Top Stat Cards - ADDED ONCLICK AND HOVER EFFECTS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div 
           onClick={() => setActiveTab('users')}
-          className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow group"
+          className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow group"
         >
           <div>
-            <p className="text-sm font-medium text-gray-500 mb-1 group-hover:text-blue-600 transition-colors">Total Users</p>
+            <p className="text-sm font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">Total Users</p>
             <h3 className="text-2xl font-bold text-gray-800">{users.length}</h3>
           </div>
-          <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+          <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
             <Users size={24} />
           </div>
         </div>
 
         <div 
           onClick={() => setActiveTab('batches')}
-          className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow group"
+          className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow group"
         >
           <div>
-            <p className="text-sm font-medium text-gray-500 mb-1 group-hover:text-green-600 transition-colors">Active Batches</p>
+            <p className="text-sm font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">Active Batches</p>
             <h3 className="text-2xl font-bold text-gray-800">{activeBatchesCount}</h3>
           </div>
-          <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center text-green-600 group-hover:scale-110 transition-transform">
+          <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
             <BookOpen size={24} />
           </div>
         </div>
 
         <div 
           onClick={() => setActiveTab('billing')}
-          className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow group"
+          className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow group"
         >
           <div>
-            <p className="text-sm font-medium text-gray-500 mb-1 group-hover:text-yellow-600 transition-colors">Revenue ({timeFilter})</p>
+            <p className="text-sm font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">Revenue ({timeFilter})</p>
             <h3 className="text-2xl font-bold text-gray-800">₹{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
           </div>
           <div className="w-12 h-12 bg-yellow-50 rounded-full flex items-center justify-center text-yellow-600 group-hover:scale-110 transition-transform">
@@ -150,8 +147,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Revenue Chart Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
           <div className="flex items-center space-x-2">
             <TrendingUp className="text-gray-500" size={20} />
@@ -161,7 +157,7 @@ export default function DashboardPage() {
           <select
             value={timeFilter}
             onChange={(e) => setTimeFilter(e.target.value as any)}
-            className="mt-4 sm:mt-0 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            className="mt-4 sm:mt-0 px-4 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer transition-all"
           >
             <option value="This Month">This Month</option>
             <option value="This Year">This Year</option>
@@ -171,7 +167,7 @@ export default function DashboardPage() {
 
         <div className="h-[400px] w-full">
           {totalRevenue === 0 ? (
-            <div className="flex items-center justify-center h-full text-gray-400 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
+            <div className="flex items-center justify-center h-full text-gray-400 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50">
               No revenue collected for this period yet.
             </div>
           ) : (
@@ -192,13 +188,9 @@ export default function DashboardPage() {
                 </Pie>
                 <Tooltip 
                   formatter={(value) => [`₹${(value ?? 0).toLocaleString()}`, 'Revenue']}
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                 />
-                <Legend 
-                  verticalAlign="bottom" 
-                  height={36}
-                  iconType="circle"
-                />
+                <Legend verticalAlign="bottom" height={36} iconType="circle" />
               </PieChart>
             </ResponsiveContainer>
           )}

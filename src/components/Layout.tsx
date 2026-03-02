@@ -7,7 +7,8 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   return (
-    <div className="flex h-screen bg-gray-50">
+    // Changed bg-gray-50 to bg-cream
+    <div className="flex h-screen bg-cream">
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
         {children}
