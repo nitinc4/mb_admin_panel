@@ -71,33 +71,50 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
-    const { email, full_name, phone, fcm_token, tier_id, billingCycle, is_active, isBlocked } = req.body;
+    const { email, full_name, phone, fcm_token, tier_id, billingCycle, is_active, isBlocked, password } = req.body;
     const oldUser = await User.findById(req.params.id);
+    if (!oldUser) return res.status(404).json({ success: false, error: 'User not found' });
+
+    // ONLY update the fields that are actually sent from the app
+    const updateFields = {};
+    if (email !== undefined) updateFields.email = email;
+    if (full_name !== undefined) updateFields.name = full_name;
+    if (phone !== undefined) updateFields.phone = phone;
+    if (fcm_token !== undefined) updateFields.fcm_token = fcm_token;
+    if (tier_id !== undefined) updateFields.tier = tier_id;
+    if (billingCycle !== undefined) updateFields.billingCycle = billingCycle;
+    if (is_active !== undefined) updateFields.isActive = is_active;
+    if (isBlocked !== undefined) updateFields.isBlocked = isBlocked;
+    
+    // CRITICAL FIX: Allow password to be saved
+    if (password !== undefined && password.trim() !== '') {
+      updateFields.password = password;
+    }
 
     const data = await User.findByIdAndUpdate(
       req.params.id,
-      { email, name: full_name, phone, fcm_token, tier: tier_id, billingCycle, isActive: is_active, isBlocked },
-      { returnDocument: 'after', runValidators: true }
+      { $set: updateFields },
+      { new: true, runValidators: true }
     ).populate('tier', 'id name monthlyPrice yearlyPrice lifetimePrice');
-
-    if (!data) return res.status(404).json({ success: false, error: 'User not found' });
 
     // AUTO INVOICE ON TIER UPGRADE/CHANGE
     if (tier_id && (!oldUser.tier || oldUser.tier.toString() !== tier_id.toString() || oldUser.billingCycle !== billingCycle)) {
       const tierDetails = await Tier.findById(tier_id);
-      let amount = 0;
-      if (data.billingCycle === 'monthly') amount = tierDetails.monthlyPrice;
-      else if (data.billingCycle === 'yearly') amount = tierDetails.yearlyPrice;
-      else if (data.billingCycle === 'lifetime') amount = tierDetails.lifetimePrice;
+      if (tierDetails) {
+        let amount = 0;
+        if (data.billingCycle === 'monthly') amount = tierDetails.monthlyPrice;
+        else if (data.billingCycle === 'yearly') amount = tierDetails.yearlyPrice;
+        else if (data.billingCycle === 'lifetime') amount = tierDetails.lifetimePrice;
 
-      if (amount > 0) {
-        await Payment.create({
-          user: data._id,
-          amount,
-          reason: `Subscription - ${tierDetails.name} (${data.billingCycle})`,
-          dueDate: new Date(),
-          status: 'upcoming'
-        });
+        if (amount > 0) {
+          await Payment.create({
+            user: data._id,
+            amount,
+            reason: `Subscription - ${tierDetails.name} (${data.billingCycle})`,
+            dueDate: new Date(),
+            status: 'upcoming'
+          });
+        }
       }
     }
 
