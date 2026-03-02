@@ -38,12 +38,44 @@ const requireAppAuth = async (req, res, next) => {
   }
 };
 
+/**
+ * 0. App Login Route (UNPROTECTED)
+ * Verifies the email and password before allowing the app to log in.
+ */
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    // Find the user by email and securely fetch their info without returning all users
+    const user = await User.findOne({ email }).populate('tier', 'id name monthlyPrice yearlyPrice lifetimePrice');
+    
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    // Verify password (Note: In a production environment, use bcrypt.compare here)
+    if (user.password !== password) {
+      return res.status(401).json({ success: false, error: 'Invalid password' });
+    }
+
+    res.json({ success: true, data: user });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 
 /**
  * 1. Fetch User Data (Protected Route - Will fail if blocked)
  */
 router.get('/my-profile', requireAppAuth, async (req, res) => {
-  res.json({ success: true, data: req.user });
+  try {
+    // We re-fetch to populate the 'tier' object so the Flutter Profile Screen displays correctly
+    const userWithTier = await User.findById(req.user._id).populate('tier', 'id name monthlyPrice yearlyPrice lifetimePrice');
+    res.json({ success: true, data: userWithTier });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 
