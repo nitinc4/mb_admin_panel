@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Search, Eye, FolderOpen, ArrowLeft } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, FolderOpen, ArrowLeft, Calendar } from 'lucide-react';
 import BatchModal from '../components/BatchModal';
-import ContentModal from '../components/ContentModal'; // <-- IMPORTED NEW MODAL
+import ContentModal from '../components/ContentModal'; 
 import { API_URL } from '../config';
 
 interface Tier { id: string; name: string; }
@@ -43,8 +43,8 @@ export default function BatchesPage() {
   const [batchDetails, setBatchDetails] = useState<{ batch: Batch, content: ContentItem[] } | null>(null);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   
-  const [isContentModalOpen, setIsContentModalOpen] = useState(false); // <-- CONTENT MODAL STATE
-  const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null); // <-- CONTENT MODAL STATE
+  const [isContentModalOpen, setIsContentModalOpen] = useState(false); 
+  const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null); 
 
  const fetchInitialData = async () => {
     try {
@@ -70,11 +70,10 @@ export default function BatchesPage() {
     fetchInitialData();
   }, []);
 
-  // Extracted fetch function so we can call it after saving new content!
   const fetchBatchContent = async (batchId: string) => {
     setIsLoadingContent(true);
     try {
-      const res = await fetch(`${API_URL}/api/batches/${batchId}`); //const res = await fetch(`${API_URL}/api/batches/${batchId}`);
+      const res = await fetch(`${API_URL}/api/batches/${batchId}`);
       const data = await res.json();
       if (data.success) {
         setBatchDetails({
@@ -112,8 +111,8 @@ export default function BatchesPage() {
     try {
       await fetch(`${API_URL}/api/content/${contentId}`, { method: 'DELETE' });
       if (viewingBatchId) {
-        fetchBatchContent(viewingBatchId); // Refresh inner content view
-        fetchInitialData(); // Refresh outer batch item counts
+        fetchBatchContent(viewingBatchId); 
+        fetchInitialData(); 
       }
     } catch (error) {
       console.error('Error deleting content:', error);
@@ -139,21 +138,31 @@ export default function BatchesPage() {
     const { batch, content } = batchDetails;
     return (
       <div className="p-8">
-        <div className="mb-6">
+        <div className="mb-8">
           <button
             onClick={() => setViewingBatchId(null)}
-            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium mb-2"
+            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium mb-3"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Batches
           </button>
           <h1 className="text-3xl font-bold text-gray-800">{batch.name}</h1>
-          <p className="text-gray-600 mt-1">{batch.description}</p>
+          <p className="text-gray-600 mt-2 text-lg">{batch.description || "No description provided."}</p>
+          
+          <div className="flex gap-6 mt-4 text-sm text-gray-700">
+             <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-blue-500" />
+                <span className="font-semibold">Start:</span> {batch.start_date ? new Date(batch.start_date).toLocaleDateString() : 'TBA'}
+             </div>
+             <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-blue-500" />
+                <span className="font-semibold">End:</span> {batch.end_date ? new Date(batch.end_date).toLocaleDateString() : 'TBA'}
+             </div>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-gray-800">Content Items</h2>
-            {/* <-- CONNECTED ADD BUTTON --> */}
             <button 
               onClick={() => { setSelectedContent(null); setIsContentModalOpen(true); }}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -187,7 +196,6 @@ export default function BatchesPage() {
                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${item.isPublished ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                       {item.isPublished ? 'Published' : 'Draft'}
                     </span>
-                    {/* <-- CONNECTED EDIT BUTTON --> */}
                     <button onClick={() => { setSelectedContent(item); setIsContentModalOpen(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                       <Edit className="w-4 h-4" />
                     </button>
@@ -201,7 +209,6 @@ export default function BatchesPage() {
           )}
         </div>
 
-        {/* <-- CONTENT MODAL RENDER --> */}
         {isContentModalOpen && (
           <ContentModal
             content={selectedContent}
@@ -210,8 +217,8 @@ export default function BatchesPage() {
             onSave={() => {
               setIsContentModalOpen(false);
               setSelectedContent(null);
-              fetchBatchContent(viewingBatchId); // Refresh inner list
-              fetchInitialData(); // Refresh outer count
+              fetchBatchContent(viewingBatchId); 
+              fetchInitialData(); 
             }}
           />
         )}
@@ -265,10 +272,14 @@ export default function BatchesPage() {
                 {filteredBatches.length === 0 ? (
                   <tr><td colSpan={6} className="p-4 text-center text-gray-500">No batches found.</td></tr>
                 ) : filteredBatches.map((batch) => (
-                  <tr key={batch.id} className="hover:bg-gray-50">
+                  <tr 
+                    key={batch.id} 
+                    className="hover:bg-blue-50 cursor-pointer transition-colors"
+                    onClick={() => setViewingBatchId(batch.id)}
+                  >
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">{batch.name}</div>
-                      <div className="text-sm text-gray-500">{batch.description}</div>
+                      <div className="text-sm text-gray-500 line-clamp-1">{batch.description}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-600">
@@ -297,13 +308,17 @@ export default function BatchesPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex justify-end gap-2">
-                        <button onClick={() => setViewingBatchId(batch.id)} className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors" title="View Content">
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleEditBatch(batch)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                        {/* Stop propagation ensures row click doesn't fire when hitting Edit/Delete */}
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleEditBatch(batch); }} 
+                          className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                        >
                           <Edit className="w-4 h-4" />
                         </button>
-                        <button onClick={() => handleDeleteBatch(batch.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleDeleteBatch(batch.id); }} 
+                          className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                        >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
