@@ -12,7 +12,7 @@ interface ServiceCategory {
 
 interface Service {
   id: string;
-  category: ServiceCategory; // Populated by MongoDB
+  category: ServiceCategory; 
   name: string;
   description: string;
   price: number;
@@ -33,7 +33,7 @@ export default function SettingsPage() {
 
   const [categoryForm, setCategoryForm] = useState({ name: '', description: '', color: '#3B82F6' });
   const [serviceForm, setServiceForm] = useState({
-    category: '', // This stores the selected category ID
+    category: '', 
     name: '',
     description: '',
     price: 0,
@@ -97,7 +97,7 @@ export default function SettingsPage() {
         setCategoryForm({ name: '', description: '', color: '#3B82F6' });
         setEditingCategory(null);
         setShowCategoryModal(false);
-        fetchData(); // Refresh to update any associated services
+        fetchData(); 
       }
     } catch (error) {
       console.error('Error updating category:', error);
@@ -117,7 +117,8 @@ export default function SettingsPage() {
   const handleAddService = async () => {
     if (!serviceForm.name || !serviceForm.category) return;
     try {
-      const res = await fetch('${API_URL}/api/services', {
+      // FIX 1: Used backticks instead of single quotes here
+      const res = await fetch(`${API_URL}/api/services`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(serviceForm),
@@ -192,13 +193,14 @@ export default function SettingsPage() {
   };
 
   if (loading) {
-    return <div className="p-8 text-gray-500">Loading settings...</div>;
+    return <div className="p-8 text-gray-500">Loading services...</div>;
   }
 
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Settings</h1>
+        {/* CHANGED NAME TO SERVICES */}
+        <h1 className="text-3xl font-bold text-gray-800">Services</h1>
         <p className="text-gray-600 mt-1">Manage services and categories</p>
       </div>
 
@@ -361,11 +363,13 @@ export default function SettingsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
-                  <input type="number" value={serviceForm.price} onChange={(e) => setServiceForm({ ...serviceForm, price: parseFloat(e.target.value) })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  {/* FIX 2: Added e.target.value check to prevent passing NaN to the state */}
+                  <input type="number" value={serviceForm.price || ''} onChange={(e) => setServiceForm({ ...serviceForm, price: e.target.value ? parseFloat(e.target.value) : 0 })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Duration (min)</label>
-                  <input type="number" value={serviceForm.duration} onChange={(e) => setServiceForm({ ...serviceForm, duration: parseInt(e.target.value) })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  {/* FIX 2: Added e.target.value check to prevent passing NaN to the state */}
+                  <input type="number" value={serviceForm.duration || ''} onChange={(e) => setServiceForm({ ...serviceForm, duration: e.target.value ? parseInt(e.target.value) : 0 })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
             </div>

@@ -7,7 +7,7 @@ import {
   DollarSign,
   Settings,
   Bell,
-  MessageSquare // <-- IMPORTED NEW ICON
+  MessageSquare
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -24,9 +24,10 @@ const navItems: NavItem[] = [
   { id: 'live-classes', label: 'Live Classes', icon: Video },
   { id: 'appointments', label: 'Appointments', icon: Calendar },
   { id: 'billing', label: 'Billing', icon: DollarSign },
-  { id: 'messages', label: 'Messages', icon: MessageSquare }, // <-- ADDED MESSAGES TAB
+  { id: 'messages', label: 'Messages', icon: MessageSquare }, 
   { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'settings', label: 'Settings', icon: Settings },
+  // CHANGED FROM 'settings' TO 'services'
+  { id: 'services', label: 'Services', icon: Settings }, 
 ];
 
 export default function Sidebar() {
