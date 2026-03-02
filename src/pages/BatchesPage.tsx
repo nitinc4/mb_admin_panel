@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, Eye, FolderOpen, ArrowLeft } from 'lucide-react';
 import BatchModal from '../components/BatchModal';
 import ContentModal from '../components/ContentModal'; // <-- IMPORTED NEW MODAL
+import { API_URL } from '../config';
 
 interface Tier { id: string; name: string; }
 interface Batch {
@@ -45,12 +46,12 @@ export default function BatchesPage() {
   const [isContentModalOpen, setIsContentModalOpen] = useState(false); // <-- CONTENT MODAL STATE
   const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null); // <-- CONTENT MODAL STATE
 
-  const fetchInitialData = async () => {
+ const fetchInitialData = async () => {
     try {
       setIsLoading(true);
       const [batchesRes, tiersRes] = await Promise.all([
-        fetch('http://localhost:3001/api/batches'),
-        fetch('http://localhost:3001/api/tiers')
+        fetch(`${API_URL}/api/batches`),
+        fetch(`${API_URL}/api/tiers`)
       ]);
       
       const batchesData = await batchesRes.json();
@@ -73,7 +74,7 @@ export default function BatchesPage() {
   const fetchBatchContent = async (batchId: string) => {
     setIsLoadingContent(true);
     try {
-      const res = await fetch(`http://localhost:3001/api/batches/${batchId}`);
+      const res = await fetch(`${API_URL}/api/batches/${batchId}`); //const res = await fetch(`${API_URL}/api/batches/${batchId}`);
       const data = await res.json();
       if (data.success) {
         setBatchDetails({
@@ -99,7 +100,7 @@ export default function BatchesPage() {
   const handleDeleteBatch = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this batch and all its content?')) return;
     try {
-      await fetch(`http://localhost:3001/api/batches/${id}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/api/batches/${id}`, { method: 'DELETE' });
       fetchInitialData();
     } catch (error) {
       console.error('Error deleting batch:', error);
@@ -109,7 +110,7 @@ export default function BatchesPage() {
   const handleDeleteContent = async (contentId: string) => {
     if (!window.confirm('Delete this content item?')) return;
     try {
-      await fetch(`http://localhost:3001/api/content/${contentId}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/api/content/${contentId}`, { method: 'DELETE' });
       if (viewingBatchId) {
         fetchBatchContent(viewingBatchId); // Refresh inner content view
         fetchInitialData(); // Refresh outer batch item counts

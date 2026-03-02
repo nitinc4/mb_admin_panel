@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-
+import { API_URL } from '../config';
 import { Search, Plus, Calendar, IndianRupee, AlertCircle, CheckCircle, ShieldAlert, Trash2 } from 'lucide-react';
+
+
 
 interface User { id: string; name: string; phone: string; isBlocked: boolean; }
 interface Payment {
@@ -23,7 +25,7 @@ export default function BillingPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [paymentsRes, usersRes] = await Promise.all([fetch('http://localhost:3001/api/payments'), fetch('http://localhost:3001/api/users')]);
+      const [paymentsRes, usersRes] = await Promise.all([fetch('${API_URL}/api/payments'), fetch('${API_URL}/api/users')]);
       const paymentsData = await paymentsRes.json();
       const usersData = await usersRes.json();
       if (paymentsData.success) setPayments(paymentsData.data);
@@ -53,7 +55,7 @@ export default function BillingPage() {
     if (!form.user_id) return alert("Select a user first!");
     try {
       const body = { ...form, paymentDate: form.status === 'paid' ? new Date().toISOString() : null };
-      const res = await fetch('http://localhost:3001/api/payments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const res = await fetch('${API_URL}/api/payments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const result = await res.json();
       if (result.success) {
         setPayments([...payments, result.data]);
@@ -65,7 +67,7 @@ export default function BillingPage() {
 
   const handleMarkPaid = async (paymentId: string) => {
     try {
-      const res = await fetch(`http://localhost:3001/api/payments/${paymentId}`, {
+      const res = await fetch(`${API_URL}/api/payments/${paymentId}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'paid', paymentDate: new Date().toISOString() })
       });
       const result = await res.json();
@@ -78,7 +80,7 @@ export default function BillingPage() {
   const handleBlockUser = async (userId: string) => {
     if (!window.confirm("Block this user due to non-payment?")) return;
     try {
-      await fetch(`http://localhost:3001/api/users/${userId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isBlocked: true }) });
+      await fetch(`${API_URL}/api/users/${userId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isBlocked: true }) });
       alert("User blocked successfully.");
       fetchData(); // refresh to show updated status
     } catch (error) { console.error(error); }
@@ -87,7 +89,7 @@ export default function BillingPage() {
   const handleDeletePayment = async (paymentId: string) => {
     if (!window.confirm("Are you sure you want to delete this payment record permanently?")) return;
     try {
-      const res = await fetch(`http://localhost:3001/api/payments/${paymentId}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/api/payments/${paymentId}`, { method: 'DELETE' });
       if (res.ok) {
         setPayments(payments.filter(p => p.id !== paymentId));
       }

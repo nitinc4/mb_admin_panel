@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, ShieldAlert, ShieldCheck } from 'lucide-react';
 import UserModal from '../components/UserModal';
 import TierModal from '../components/TierModal';
+import { API_URL } from '../config';
 
 interface Tier { id: string; name: string; description: string; monthlyPrice: number; yearlyPrice: number; lifetimePrice: number; }
 interface User { id: string; email: string; name: string; phone: string; tier: Tier | null; isActive: boolean; isBlocked: boolean; createdAt: string; }
@@ -21,7 +22,10 @@ export default function UsersPage() {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const [usersRes, tiersRes] = await Promise.all([fetch('http://localhost:3001/api/users'), fetch('http://localhost:3001/api/tiers')]);
+      const [usersRes, tiersRes] = await Promise.all([
+        fetch(`${API_URL}/api/users`), 
+        fetch(`${API_URL}/api/tiers`)
+      ]);
       const usersData = await usersRes.json();
       const tiersData = await tiersRes.json();
       if (usersData.success) setUsers(usersData.data);
@@ -29,12 +33,10 @@ export default function UsersPage() {
     } catch (error) { console.error('Error fetching data:', error); } finally { setIsLoading(false); }
   };
 
-  useEffect(() => { fetchData(); }, []);
-
   const handleToggleBlock = async (userId: string, isBlocked: boolean) => {
     if (!window.confirm(`Are you sure you want to ${isBlocked ? 'block' : 'unblock'} this user?`)) return;
     try {
-      await fetch(`http://localhost:3001/api/users/${userId}`, {
+      await fetch(`${API_URL}/api/users/${userId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isBlocked }),
@@ -45,13 +47,13 @@ export default function UsersPage() {
 
   const handleDeleteUser = async (id: string) => {
     if (!window.confirm('Delete user?')) return;
-    await fetch(`http://localhost:3001/api/users/${id}`, { method: 'DELETE' });
+    await fetch(`${API_URL}/api/users/${id}`, { method: 'DELETE' });
     fetchData();
   };
 
   const handleDeleteTier = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this tier?')) return;
-    await fetch(`http://localhost:3001/api/tiers/${id}`, { method: 'DELETE' });
+    await fetch(`${API_URL}/api/tiers/${id}`, { method: 'DELETE' });
     fetchData();
   };
 

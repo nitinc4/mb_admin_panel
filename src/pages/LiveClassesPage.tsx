@@ -35,8 +35,8 @@ export default function LiveClassesPage() {
     try {
       setIsLoading(true);
       const [classesRes, batchesRes] = await Promise.all([
-        fetch('http://localhost:3001/api/live-classes'),
-        fetch('http://localhost:3001/api/batches')
+        fetch('${API_URL}/api/live-classes'),
+        fetch('${API_URL}/api/batches')
       ]);
       
       const classesData = await classesRes.json();
@@ -63,7 +63,7 @@ export default function LiveClassesPage() {
   const handleStartClass = async (liveClass: LiveClass) => {
     if (liveClass.status === 'scheduled') {
         try {
-            await fetch(`http://localhost:3001/api/live-classes/${liveClass.id}/start`, { method: 'POST' });
+            await fetch(`${API_URL}/api/live-classes/${liveClass.id}/start`, { method: 'POST' });
             fetchData(); // Refresh to show it as 'live'
         } catch (error) {
             console.error('Failed to start class');
@@ -75,7 +75,7 @@ export default function LiveClassesPage() {
   const handleEndClass = async (classId: string) => {
     if (!window.confirm("Are you sure you want to end this class for everyone?")) return;
     try {
-        await fetch(`http://localhost:3001/api/live-classes/${classId}/end`, { method: 'POST' });
+        await fetch(`${API_URL}/api/live-classes/${classId}/end`, { method: 'POST' });
         fetchData(); // Refresh to show it as 'ended'
     } catch (error) {
         console.error('Failed to end class');
@@ -85,7 +85,7 @@ export default function LiveClassesPage() {
   const handleDeleteClass = async (classId: string) => {
     if (!window.confirm("Delete this live class?")) return;
     try {
-        await fetch(`http://localhost:3001/api/live-classes/${classId}`, { method: 'DELETE' });
+        await fetch(`${API_URL}/api/live-classes/${classId}`, { method: 'DELETE' });
         fetchData();
     } catch (error) {
         console.error('Failed to delete class');

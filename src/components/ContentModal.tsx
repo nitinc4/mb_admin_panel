@@ -49,8 +49,8 @@ export default function ContentModal({ content, batchId, onClose, onSave }: Cont
 
     try {
       const url = content
-        ? `http://localhost:3001/api/content/${content.id}`
-        : 'http://localhost:3001/api/content';
+        ? `${API_URL}/api/content/${content.id}`
+        : '${API_URL}/api/content';
 
       const response = await fetch(url, {
         method: content ? 'PUT' : 'POST',

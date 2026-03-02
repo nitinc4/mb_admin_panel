@@ -42,9 +42,9 @@ export default function NotificationsPage() {
     try {
       setLoading(true);
       const [notifRes, tiersRes, batchesRes] = await Promise.all([
-        fetch('http://localhost:3001/api/notifications'),
-        fetch('http://localhost:3001/api/tiers'),
-        fetch('http://localhost:3001/api/batches')
+        fetch('${API_URL}/api/notifications'),
+        fetch('${API_URL}/api/tiers'),
+        fetch('${API_URL}/api/batches')
       ]);
 
       const notifData = await notifRes.json();
@@ -82,7 +82,7 @@ export default function NotificationsPage() {
         type: 'promotional' // default for manually created ones
       };
 
-      const res = await fetch('http://localhost:3001/api/notifications', {
+      const res = await fetch('${API_URL}/api/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -107,7 +107,7 @@ export default function NotificationsPage() {
   const handleDelete = async (id: string) => {
     if (!window.confirm("Delete this notification? If it's pending, it won't be sent.")) return;
     try {
-      await fetch(`http://localhost:3001/api/notifications/${id}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/api/notifications/${id}`, { method: 'DELETE' });
       setNotifications(notifications.filter(n => n._id !== id));
     } catch (error) {
       console.error('Error deleting:', error);

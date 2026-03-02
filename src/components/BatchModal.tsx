@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface Tier { id: string; name: string; }
 interface Batch {
@@ -56,8 +57,8 @@ export default function BatchModal({ batch, tiers, onClose, onSave }: BatchModal
 
     try {
       const url = batch 
-        ? `http://localhost:3001/api/batches/${batch.id}` 
-        : 'http://localhost:3001/api/batches';
+        ? `${API_URL}/api/batches/${batch.id}` 
+        : '${API_URL}/api/batches';
 
       const response = await fetch(url, {
         method: batch ? 'PUT' : 'POST',

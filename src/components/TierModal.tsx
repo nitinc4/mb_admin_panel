@@ -42,7 +42,7 @@ export default function TierModal({ tier, onClose, onSave }: TierModalProps) {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const url = tier ? `http://localhost:3001/api/tiers/${tier.id}` : 'http://localhost:3001/api/tiers';
+      const url = tier ? `${API_URL}/api/tiers/${tier.id}` : '${API_URL}/api/tiers';
       const response = await fetch(url, {
         method: tier ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },

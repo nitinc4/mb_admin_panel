@@ -28,9 +28,9 @@ export default function DashboardPage() {
         setLoading(true);
         // Fetch actual data from your connected MongoDB backend
         const [usersRes, batchesRes, paymentsRes] = await Promise.all([
-          fetch('http://localhost:3001/api/users'),
-          fetch('http://localhost:3001/api/batches'),
-          fetch('http://localhost:3001/api/payments'),
+          fetch('${API_URL}/api/users'),
+          fetch('${API_URL}/api/batches'),
+          fetch('${API_URL}/api/payments'),
         ]);
 
         const usersData = await usersRes.json();

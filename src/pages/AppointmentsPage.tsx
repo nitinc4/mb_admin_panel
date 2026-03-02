@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, X, Calendar, Clock, DollarSign, Check, ExternalLink } from 'lucide-react';
 import { useApp } from '../context/AppContext'; 
+import { API_URL } from '../config';
 
 interface User { id: string; email: string; name: string; }
 interface Appointment { id: string; user: User; title: string; cost: number; scheduledAt: string; status: string; notes: string; isPaid: boolean; paymentAmount: number; }
@@ -18,7 +19,7 @@ export default function AppointmentsPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [apptsRes, usrRes] = await Promise.all([fetch('http://localhost:3001/api/appointments'), fetch('http://localhost:3001/api/users')]);
+      const [apptsRes, usrRes] = await Promise.all([fetch('${API_URL}/api/appointments'), fetch('${API_URL}/api/users')]);
       const appts = await apptsRes.json(); const usr = await usrRes.json();
       if (appts.success) setAppointments(appts.data); if (usr.success) setUsers(usr.data);
     } catch (error) { console.error('Error:', error); } finally { setLoading(false); }
@@ -30,7 +31,7 @@ export default function AppointmentsPage() {
     if (!form.user_id || !form.title) return alert('User and Title are required');
     try {
       const scheduled_at = new Date(`${form.scheduled_at}T${form.scheduled_time}`).toISOString();
-      const response = await fetch('http://localhost:3001/api/appointments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, scheduled_at }) });
+      const response = await fetch('${API_URL}/api/appointments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, scheduled_at }) });
       const result = await response.json();
       
       if (result.success) {
@@ -40,7 +41,7 @@ export default function AppointmentsPage() {
         
         // AUTO GENERATE UPCOMING INVOICE IN PAYMENTS SYSTEM
         if (result.data.cost > 0) {
-          await fetch('http://localhost:3001/api/payments', {
+          await fetch('${API_URL}/api/payments', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               user_id: form.user_id, amount: result.data.cost, reason: `Appointment - ${result.data.title}`, dueDate: scheduled_at, status: 'upcoming', appointment_id: result.data.id
@@ -53,7 +54,7 @@ export default function AppointmentsPage() {
 
   const handleStatusChange = async (appointmentId: string, newStatus: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/appointments/${appointmentId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) });
+      const response = await fetch(`${API_URL}/api/appointments/${appointmentId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) });
       const result = await response.json();
       if (result.success) setAppointments(appointments.map(a => a.id === appointmentId ? result.data : a));
     } catch (error) { console.error(error); }
@@ -70,7 +71,7 @@ export default function AppointmentsPage() {
   const handleDeleteAppointment = async (appointmentId: string) => {
     if (!window.confirm('Delete this appointment?')) return;
     try {
-      await fetch(`http://localhost:3001/api/appointments/${appointmentId}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/api/appointments/${appointmentId}`, { method: 'DELETE' });
       setAppointments(appointments.filter(a => a.id !== appointmentId));
     } catch (error) { console.error(error); }
   };

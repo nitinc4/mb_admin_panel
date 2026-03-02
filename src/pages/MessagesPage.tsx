@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { Send, Users, Search } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface Batch { id: string; name: string; }
 interface Message { id?: string; _id?: string; batchId: string; senderName: string; senderRole: string; text: string; createdAt: string; }
@@ -25,14 +26,14 @@ export default function MessagesPage() {
   useEffect(() => {
     const fetchBatches = async () => {
       try {
-        const res = await fetch('http://localhost:3001/api/batches');
+        const res = await fetch('${API_URL}/api/batches');
         const data = await res.json();
         if (data.success) setBatches(data.data);
       } catch (error) { console.error('Error fetching batches:', error); }
     };
     fetchBatches();
 
-    const newSocket = io('http://localhost:3001');
+    const newSocket = io('${API_URL}');
     setSocket(newSocket);
     return () => { newSocket.close(); };
   }, []);
@@ -41,7 +42,7 @@ export default function MessagesPage() {
   useEffect(() => {
     if (socket && selectedBatch) {
       setMessages([]); // Clear previous messages while loading
-      fetch(`http://localhost:3001/api/messages/batch/${selectedBatch.id}`)
+      fetch(`${API_URL}/api/messages/batch/${selectedBatch.id}`)
         .then(res => res.json())
         .then(data => {
           if (data.success) setMessages(data.data);

@@ -47,8 +47,8 @@ export default function SettingsPage() {
     try {
       setLoading(true);
       const [categoriesRes, servicesRes] = await Promise.all([
-        fetch('http://localhost:3001/api/service-categories'),
-        fetch('http://localhost:3001/api/services'),
+        fetch('${API_URL}/api/service-categories'),
+        fetch('${API_URL}/api/services'),
       ]);
 
       const categoriesData = await categoriesRes.json();
@@ -66,7 +66,7 @@ export default function SettingsPage() {
   const handleAddCategory = async () => {
     if (!categoryForm.name) return;
     try {
-      const res = await fetch('http://localhost:3001/api/service-categories', {
+      const res = await fetch('${API_URL}/api/service-categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(categoryForm),
@@ -85,7 +85,7 @@ export default function SettingsPage() {
   const handleUpdateCategory = async () => {
     if (!editingCategory || !categoryForm.name) return;
     try {
-      const res = await fetch(`http://localhost:3001/api/service-categories/${editingCategory.id}`, {
+      const res = await fetch(`${API_URL}/api/service-categories/${editingCategory.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(categoryForm),
@@ -106,7 +106,7 @@ export default function SettingsPage() {
   const handleDeleteCategory = async (id: string) => {
     if (!window.confirm('Delete this category?')) return;
     try {
-      await fetch(`http://localhost:3001/api/service-categories/${id}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/api/service-categories/${id}`, { method: 'DELETE' });
       setCategories(categories.filter((c) => c.id !== id));
     } catch (error) {
       console.error('Error deleting category:', error);
@@ -116,7 +116,7 @@ export default function SettingsPage() {
   const handleAddService = async () => {
     if (!serviceForm.name || !serviceForm.category) return;
     try {
-      const res = await fetch('http://localhost:3001/api/services', {
+      const res = await fetch('${API_URL}/api/services', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(serviceForm),
@@ -135,7 +135,7 @@ export default function SettingsPage() {
   const handleUpdateService = async () => {
     if (!editingService || !serviceForm.name) return;
     try {
-      const res = await fetch(`http://localhost:3001/api/services/${editingService.id}`, {
+      const res = await fetch(`${API_URL}/api/services/${editingService.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(serviceForm),
@@ -155,7 +155,7 @@ export default function SettingsPage() {
   const handleDeleteService = async (id: string) => {
     if (!window.confirm('Delete this service?')) return;
     try {
-      await fetch(`http://localhost:3001/api/services/${id}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/api/services/${id}`, { method: 'DELETE' });
       setServices(services.filter((s) => s.id !== id));
     } catch (error) {
       console.error('Error deleting service:', error);
