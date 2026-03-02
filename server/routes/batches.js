@@ -15,7 +15,7 @@ router.get('/', async (req, res) => {
         const contentCount = await ContentItem.countDocuments({ batch: batch._id });
         
         return {
-          ...batch.toJSON(), // <--- THIS FIXES THE BLANK DATA
+          ...batch.toJSON(), 
           allowed_tiers: batch.allowedTiers,
           content_count: contentCount,
         };
@@ -43,7 +43,7 @@ router.get('/:id', async (req, res) => {
     res.json({
       success: true,
       data: {
-        ...batch.toJSON(), // <--- THIS FIXES THE BLANK DATA
+        ...batch.toJSON(), 
         allowed_tiers: batch.allowedTiers,
         content_items: contentItems,
       },
@@ -55,11 +55,18 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { name, description, start_date, end_date, is_active, tier_ids } = req.body;
+    const { 
+      name, description, attendance, assignment, announcements, tests, 
+      start_date, end_date, is_active, tier_ids 
+    } = req.body;
 
     const data = await Batch.create({
       name,
       description: description || '',
+      attendance: attendance || '',
+      assignment: assignment || '',
+      announcements: announcements || '',
+      tests: tests || '',
       start_date: start_date || null,
       end_date: end_date || null,
       isActive: is_active !== undefined ? is_active : true,
@@ -74,13 +81,20 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
-    const { name, description, start_date, end_date, is_active, tier_ids } = req.body;
+    const { 
+      name, description, attendance, assignment, announcements, tests,
+      start_date, end_date, is_active, tier_ids 
+    } = req.body;
 
     const data = await Batch.findByIdAndUpdate(
       req.params.id,
       {
         name,
         description,
+        attendance,
+        assignment,
+        announcements,
+        tests,
         start_date,
         end_date,
         isActive: is_active,
