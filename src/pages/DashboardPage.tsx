@@ -4,7 +4,7 @@ import { Users, BookOpen, IndianRupee, TrendingUp } from 'lucide-react';
 import { API_URL } from '../config';
 import { useApp } from '../context/AppContext';
 
-const COLORS = ['#FF9800', '#FFEB3B', '#10b981']; // Primary Orange, Secondary Yellow, Green
+const COLORS = ['#FF9800', '#ff0602', '#10b981']; // Primary Orange, Secondary Yellow, Green
 
 interface User { id: string; }
 interface Batch { id: string; isActive: boolean; }
