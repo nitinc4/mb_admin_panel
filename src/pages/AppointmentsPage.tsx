@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, X, Calendar, Clock, DollarSign, Check, ExternalLink } from 'lucide-react';
+import { Plus, X, Calendar, Clock, DollarSign, ExternalLink } from 'lucide-react';
 import { useApp } from '../context/AppContext'; 
 import { API_URL } from '../config';
 
@@ -13,7 +13,6 @@ export default function AppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
 
-  // Replaced service_id with title and cost
   const [form, setForm] = useState({ user_id: '', title: '', cost: 0, scheduled_at: new Date().toISOString().split('T')[0], scheduled_time: '10:00', notes: '' });
 
   const fetchData = async () => {
@@ -39,7 +38,6 @@ export default function AppointmentsPage() {
         setShowModal(false);
         setForm({ user_id: '', title: '', cost: 0, scheduled_at: new Date().toISOString().split('T')[0], scheduled_time: '10:00', notes: '' });
         
-        // AUTO GENERATE UPCOMING INVOICE IN PAYMENTS SYSTEM
         if (result.data.cost > 0) {
           await fetch(`${API_URL}/api/payments`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -81,54 +79,64 @@ export default function AppointmentsPage() {
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
   const formatTime = (dateString: string) => new Date(dateString).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
-  if (loading) return <div className="p-8 text-gray-500">Loading appointments...</div>;
+  if (loading) return <div className="p-8 text-gray-500 bg-cream min-h-full">Loading appointments...</div>;
 
   return (
-    <div className="p-8">
+    <div className="p-8 bg-cream min-h-full">
       <div className="flex justify-between items-center mb-6">
-        <div><h1 className="text-3xl font-bold text-gray-800">Appointments</h1><p className="text-gray-600 mt-1">Manage incoming appointment requests</p></div>
-        <button onClick={() => setShowModal(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg"><Plus size={18} /> New Appointment</button>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Appointments</h1>
+          <p className="text-gray-600 mt-1">Manage incoming appointment requests</p>
+        </div>
+        <button onClick={() => setShowModal(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-opacity font-medium shadow-sm">
+          <Plus size={18} /> New Appointment
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 overflow-x-auto pb-4">
+      {/* FIXED OVERLAPPING: Changed grid to a flex container with overflow-x-auto */}
+      <div className="flex flex-nowrap overflow-x-auto gap-6 pb-6 items-start">
         {statuses.map(status => (
-          <div key={status} className="flex-shrink-0 w-80 bg-gray-50 rounded-lg border border-gray-200 p-4 max-h-[calc(100vh-200px)] overflow-y-auto">
-            <h3 className="font-semibold text-gray-800 mb-4 capitalize flex items-center justify-between">
+          <div key={status} className="flex-shrink-0 w-80 bg-white rounded-xl shadow-sm border border-gray-100 p-4 max-h-[calc(100vh-200px)] overflow-y-auto">
+            <h3 className="font-semibold text-gray-800 mb-4 capitalize flex items-center justify-between sticky top-0 bg-white z-10 py-1">
               <span>{status.replace('_', ' ')}</span>
-              <span className="bg-gray-200 text-gray-700 rounded-full w-6 h-6 flex items-center justify-center text-sm">{appointments.filter(a => a.status === status).length}</span>
+              <span className="bg-orange-100 text-primary rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">
+                {appointments.filter(a => a.status === status).length}
+              </span>
             </h3>
 
             <div className="space-y-3">
               {appointments.filter(a => a.status === status).map(appointment => (
-                <div key={appointment.id} className="p-3 rounded-lg border-l-4 border-l-blue-500 bg-white shadow-sm hover:shadow-md transition-shadow">
-                  <div className="mb-2">
-                    <p className="font-semibold text-gray-800 text-sm">{appointment.title}</p>
-                    <p className="text-xs text-gray-600">{appointment.user?.name || 'Unknown User'}</p>
+                <div key={appointment.id} className="p-4 rounded-lg border-l-4 border-l-primary bg-gray-50 hover:bg-white shadow-sm hover:shadow-md transition-all">
+                  <div className="mb-3">
+                    <p className="font-bold text-gray-800 text-sm">{appointment.title}</p>
+                    <p className="text-xs text-gray-500">{appointment.user?.name || 'Unknown User'}</p>
                   </div>
 
-                  <div className="space-y-1 mb-3 text-xs text-gray-600">
-                    <div className="flex items-center gap-1"><Calendar size={12} /><span>{formatDate(appointment.scheduledAt)}</span></div>
-                    <div className="flex items-center gap-1"><Clock size={12} /><span>{formatTime(appointment.scheduledAt)}</span></div>
-                    <div className="flex items-center gap-1">
-                      <DollarSign size={12} />
-                      <span>₹{appointment.paymentAmount} {appointment.isPaid ? <span className="text-green-600 font-semibold">(Paid)</span> : <span className="text-red-600 font-semibold">(Unpaid)</span>}</span>
+                  <div className="space-y-1.5 mb-4 text-xs text-gray-600 font-medium">
+                    <div className="flex items-center gap-2"><Calendar size={14} className="text-primary"/><span>{formatDate(appointment.scheduledAt)}</span></div>
+                    <div className="flex items-center gap-2"><Clock size={14} className="text-primary"/><span>{formatTime(appointment.scheduledAt)}</span></div>
+                    <div className="flex items-center gap-2">
+                      <DollarSign size={14} className="text-primary"/>
+                      <span>₹{appointment.paymentAmount} {appointment.isPaid ? <span className="text-green-600 font-bold ml-1">(Paid)</span> : <span className="text-red-500 font-bold ml-1">(Unpaid)</span>}</span>
                     </div>
                   </div>
 
-                  {appointment.notes && <p className="text-xs text-gray-600 mb-3 italic">"{appointment.notes}"</p>}
+                  {appointment.notes && <p className="text-xs text-gray-600 mb-4 p-2 bg-white rounded border border-gray-100 italic">"{appointment.notes}"</p>}
 
                   <div className="flex flex-col gap-2">
                     {!appointment.isPaid && appointment.paymentAmount > 0 && (
-                      <button onClick={() => handleRouteToPayment(appointment)} className="w-full px-2 py-1.5 text-xs bg-blue-50 text-blue-700 font-bold border border-blue-200 rounded hover:bg-blue-100 transition-colors flex items-center justify-center gap-1">
+                      <button onClick={() => handleRouteToPayment(appointment)} className="w-full px-2 py-2 text-xs bg-orange-50 text-primary font-bold border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors flex items-center justify-center gap-1">
                         <ExternalLink size={12} /> Collect Payment
                       </button>
                     )}
 
-                    <select value={status} onChange={e => handleStatusChange(appointment.id, e.target.value)} className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-blue-500">
+                    <select value={status} onChange={e => handleStatusChange(appointment.id, e.target.value)} className="w-full px-2 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg focus:ring-primary focus:border-primary cursor-pointer">
                       {statuses.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}</option>)}
                     </select>
 
-                    <button onClick={() => handleDeleteAppointment(appointment.id)} className="w-full px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors">Delete</button>
+                    <button onClick={() => handleDeleteAppointment(appointment.id)} className="w-full px-2 py-1.5 text-xs font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                      Delete
+                    </button>
                   </div>
                 </div>
               ))}
@@ -139,21 +147,46 @@ export default function AppointmentsPage() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-4"><h2 className="text-xl font-bold text-gray-800">New Appointment</h2><button onClick={() => setShowModal(false)} className="p-1 text-gray-500 hover:text-gray-700"><X size={20} /></button></div>
-            <div className="space-y-4">
-              <div><label className="block text-sm font-medium mb-1">User *</label><select value={form.user_id} onChange={e => setForm({...form, user_id: e.target.value})} className="w-full px-3 py-2 border rounded-lg"><option value="">Select User</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select></div>
-              <div><label className="block text-sm font-medium mb-1">Appointment Title *</label><input type="text" placeholder="e.g. Health Consultation" value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="w-full px-3 py-2 border rounded-lg" required /></div>
-              <div><label className="block text-sm font-medium mb-1">Appointment Cost (₹) *</label><input type="number" placeholder="0 if free" value={form.cost} onChange={e => setForm({...form, cost: parseFloat(e.target.value)})} className="w-full px-3 py-2 border rounded-lg" required /></div>
-              <div className="grid grid-cols-2 gap-2">
-                <div><label className="block text-sm font-medium mb-1">Date *</label><input type="date" value={form.scheduled_at} onChange={e => setForm({...form, scheduled_at: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-                <div><label className="block text-sm font-medium mb-1">Time *</label><input type="time" value={form.scheduled_time} onChange={e => setForm({...form, scheduled_time: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-              </div>
-              <div><label className="block text-sm font-medium mb-1">Notes</label><textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} className="w-full px-3 py-2 border rounded-lg" rows={2} /></div>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-800">New Appointment</h2>
+              <button onClick={() => setShowModal(false)} className="p-1 text-gray-400 hover:text-gray-800 transition-colors"><X size={20} /></button>
             </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">Cancel</button>
-              <button onClick={handleCreateAppointment} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save</button>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">User *</label>
+                <select value={form.user_id} onChange={e => setForm({...form, user_id: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all">
+                  <option value="">Select User</option>
+                  {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Appointment Title *</label>
+                <input type="text" placeholder="e.g. Health Consultation" value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all" required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Appointment Cost (₹) *</label>
+                <input type="number" placeholder="0 if free" value={form.cost} onChange={e => setForm({...form, cost: parseFloat(e.target.value)})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all" required />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Date *</label>
+                  <input type="date" value={form.scheduled_at} onChange={e => setForm({...form, scheduled_at: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Time *</label>
+                  <input type="time" value={form.scheduled_time} onChange={e => setForm({...form, scheduled_time: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Notes</label>
+                <textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all" rows={3} placeholder="Add any details or instructions here..." />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-8">
+              <button onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 border border-gray-300 font-semibold text-gray-700 rounded-xl hover:bg-gray-50 transition-colors">Cancel</button>
+              <button onClick={handleCreateAppointment} className="flex-1 px-4 py-2 bg-primary font-semibold text-white rounded-xl hover:opacity-90 transition-opacity">Save Appointment</button>
             </div>
           </div>
         </div>

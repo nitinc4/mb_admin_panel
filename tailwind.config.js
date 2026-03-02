@@ -2,7 +2,13 @@
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        primary: '#FF9800',   // AppTheme.primaryOrange
+        secondary: '#FFEB3B', // AppTheme.secondaryYellow
+        cream: '#FFFBE6',     // AppTheme.creamBackground
+      }
+    },
   },
   plugins: [],
 };
