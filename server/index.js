@@ -100,11 +100,9 @@ io.on('connection', (socket) => {
     console.log(`User disconnected: ${socket.id}`);
   });
 });
-
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
-}
+// Remove the 'if' statement and use server.listen instead of app.listen
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
 export default app;
