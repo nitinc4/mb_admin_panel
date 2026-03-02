@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Users, BookOpen, IndianRupee, TrendingUp } from 'lucide-react';
 import { API_URL } from '../config';
+import { useApp } from '../context/AppContext'; // <-- IMPORTED CONTEXT
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b']; // Blue, Green, Yellow
 
@@ -17,6 +18,8 @@ interface Payment {
 }
 
 export default function DashboardPage() {
+  const { setActiveTab } = useApp(); // <-- EXTRACTED SET ACTIVE TAB
+
   const [timeFilter, setTimeFilter] = useState<'This Month' | 'This Year' | 'All Time'>('This Month');
   
   const [users, setUsers] = useState<User[]>([]);
@@ -28,7 +31,6 @@ export default function DashboardPage() {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        // Fetch actual data from your connected MongoDB backend
         const [usersRes, batchesRes, paymentsRes] = await Promise.all([
           fetch(`${API_URL}/api/users`),
           fetch(`${API_URL}/api/batches`),
@@ -52,10 +54,9 @@ export default function DashboardPage() {
     fetchDashboardData();
   }, []);
 
-  // Process data based on the selected time filter and group the revenue
   const chartData = useMemo(() => {
     const now = new Date();
-    let startDate = new Date(0); // Default to Jan 1, 1970 (All Time)
+    let startDate = new Date(0); 
 
     if (timeFilter === 'This Month') {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -68,13 +69,10 @@ export default function DashboardPage() {
     let otherRevenue = 0;
 
     payments.forEach((payment) => {
-      // Only count successfully paid invoices
       if (payment.status === 'paid') {
-        // Fallback to dueDate if paymentDate is missing from older data
         const dateString = payment.paymentDate || payment.dueDate;
         const pDate = dateString ? new Date(dateString) : new Date();
         
-        // Check if the payment falls within the selected time filter
         if (pDate >= startDate) {
           const reason = (payment.reason || '').toLowerCase();
           
@@ -110,34 +108,43 @@ export default function DashboardPage() {
         <p className="text-gray-600 mt-1">Overview of your app's performance and revenue.</p>
       </div>
 
-      {/* Top Stat Cards */}
+      {/* Top Stat Cards - ADDED ONCLICK AND HOVER EFFECTS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+        <div 
+          onClick={() => setActiveTab('users')}
+          className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow group"
+        >
           <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">Total Users</p>
+            <p className="text-sm font-medium text-gray-500 mb-1 group-hover:text-blue-600 transition-colors">Total Users</p>
             <h3 className="text-2xl font-bold text-gray-800">{users.length}</h3>
           </div>
-          <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600">
+          <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
             <Users size={24} />
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+        <div 
+          onClick={() => setActiveTab('batches')}
+          className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow group"
+        >
           <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">Active Batches</p>
+            <p className="text-sm font-medium text-gray-500 mb-1 group-hover:text-green-600 transition-colors">Active Batches</p>
             <h3 className="text-2xl font-bold text-gray-800">{activeBatchesCount}</h3>
           </div>
-          <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center text-green-600">
+          <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center text-green-600 group-hover:scale-110 transition-transform">
             <BookOpen size={24} />
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+        <div 
+          onClick={() => setActiveTab('billing')}
+          className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow group"
+        >
           <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">Revenue ({timeFilter})</p>
+            <p className="text-sm font-medium text-gray-500 mb-1 group-hover:text-yellow-600 transition-colors">Revenue ({timeFilter})</p>
             <h3 className="text-2xl font-bold text-gray-800">₹{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
           </div>
-          <div className="w-12 h-12 bg-yellow-50 rounded-full flex items-center justify-center text-yellow-600">
+          <div className="w-12 h-12 bg-yellow-50 rounded-full flex items-center justify-center text-yellow-600 group-hover:scale-110 transition-transform">
             <IndianRupee size={24} />
           </div>
         </div>
@@ -171,7 +178,7 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={chartData.filter(d => d.value > 0)} // Only render slices that have revenue
+                  data={chartData.filter(d => d.value > 0)} 
                   cx="50%"
                   cy="50%"
                   innerRadius={100}
