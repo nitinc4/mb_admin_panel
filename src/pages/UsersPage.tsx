@@ -23,7 +23,7 @@ export default function UsersPage() {
     try {
       setIsLoading(true);
       const [usersRes, tiersRes] = await Promise.all([
-        fetch(`${API_URL}/api/users`), 
+        fetch(`${API_URL}/api/users`),
         fetch(`${API_URL}/api/tiers`)
       ]);
       const usersData = await usersRes.json();
@@ -32,6 +32,10 @@ export default function UsersPage() {
       if (tiersData.success) setTiers(tiersData.data);
     } catch (error) { console.error('Error fetching data:', error); } finally { setIsLoading(false); }
   };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const handleToggleBlock = async (userId: string, isBlocked: boolean) => {
     if (!window.confirm(`Are you sure you want to ${isBlocked ? 'block' : 'unblock'} this user?`)) return;
@@ -80,7 +84,7 @@ export default function UsersPage() {
         </div>
 
         {isLoading ? <div className="p-8 text-center text-gray-500">Loading...</div> : activeView === 'tiers' ? (
-           <div className="overflow-x-auto">
+          <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-gray-50 border-b"><tr><th className="p-4">Name</th><th className="p-4">Description</th><th className="p-4">Prices</th><th className="p-4 text-right">Actions</th></tr></thead>
               <tbody>{filteredTiers.map(t => <tr key={t.id} className="border-b hover:bg-gray-50">
@@ -92,12 +96,12 @@ export default function UsersPage() {
                   {t.lifetimePrice > 0 && <div>₹{t.lifetimePrice} <span className="text-gray-400 text-xs">/lifetime</span></div>}
                 </td>
                 <td className="p-4 text-right">
-                  <button onClick={() => { setSelectedTier(t); setIsTierModalOpen(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={16}/></button>
-                  <button onClick={() => handleDeleteTier(t.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
+                  <button onClick={() => { setSelectedTier(t); setIsTierModalOpen(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={16} /></button>
+                  <button onClick={() => handleDeleteTier(t.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
                 </td>
               </tr>)}</tbody>
             </table>
-           </div>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -112,12 +116,12 @@ export default function UsersPage() {
                     <td className="px-6 py-4"><span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">{user.tier ? user.tier.name : 'No Tier'}</span></td>
                     <td className="px-6 py-4 text-right flex justify-end gap-2 items-center">
                       {user.isBlocked ? (
-                        <button onClick={() => handleToggleBlock(user.id, false)} className="flex items-center gap-1 p-2 text-green-600 hover:bg-green-50 rounded text-xs font-bold"><ShieldCheck size={16}/> Unblock</button>
+                        <button onClick={() => handleToggleBlock(user.id, false)} className="flex items-center gap-1 p-2 text-green-600 hover:bg-green-50 rounded text-xs font-bold"><ShieldCheck size={16} /> Unblock</button>
                       ) : (
-                        <button onClick={() => handleToggleBlock(user.id, true)} className="flex items-center gap-1 p-2 text-yellow-600 hover:bg-yellow-50 rounded text-xs font-bold"><ShieldAlert size={16}/> Block</button>
+                        <button onClick={() => handleToggleBlock(user.id, true)} className="flex items-center gap-1 p-2 text-yellow-600 hover:bg-yellow-50 rounded text-xs font-bold"><ShieldAlert size={16} /> Block</button>
                       )}
-                      <button onClick={() => { setSelectedUser(user); setIsUserModalOpen(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><Edit size={16}/></button>
-                      <button onClick={() => handleDeleteUser(user.id)} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
+                      <button onClick={() => { setSelectedUser(user); setIsUserModalOpen(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><Edit size={16} /></button>
+                      <button onClick={() => handleDeleteUser(user.id)} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
                     </td>
                   </tr>
                 ))}

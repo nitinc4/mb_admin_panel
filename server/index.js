@@ -37,8 +37,8 @@ const PORT = process.env.PORT || 3001;
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.VITE_FRONTEND_URL || "http://localhost:5173", // Your Vite frontend URL
-    methods: ["GET", "POST"]
+    origin: "*",
+    methods: ["GET", "POST","PUT", "DELETE"]
   }
 });
 

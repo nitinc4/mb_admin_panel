@@ -60,18 +60,22 @@ export default function MessagesPage() {
     }
   }, [socket, selectedBatch]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (newMessage.trim() === '' || !selectedBatch || !socket) return;
 
     const messageData = {
       batchId: selectedBatch.id,
-      senderName: "Admin", // Send as admin
+      senderName: "Admin",
       senderRole: "admin",
       text: newMessage
     };
 
     socket.emit('send_message', messageData);
+    
+    // ADD THIS LINE: Optimistically add the message to the screen instantly
+    setMessages((prev) => [...prev, { ...messageData, id: Date.now().toString(), createdAt: new Date().toISOString() }]);
+    
     setNewMessage('');
   };
 

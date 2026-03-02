@@ -8,6 +8,7 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b']; // Blue, Green, Yellow
 interface User { id: string; }
 interface Batch { id: string; isActive: boolean; }
 interface Payment {
+  dueDate: string;
   id: string;
   amount: number;
   reason: string;
@@ -68,17 +69,21 @@ export default function DashboardPage() {
 
     payments.forEach((payment) => {
       // Only count successfully paid invoices
-      if (payment.status === 'paid' && payment.paymentDate) {
-        const pDate = new Date(payment.paymentDate);
+      if (payment.status === 'paid') {
+        // Fallback to dueDate if paymentDate is missing from older data
+        const dateString = payment.paymentDate || payment.dueDate;
+        const pDate = dateString ? new Date(dateString) : new Date();
         
         // Check if the payment falls within the selected time filter
         if (pDate >= startDate) {
-          if (payment.reason?.startsWith('Appointment')) {
+          const reason = (payment.reason || '').toLowerCase();
+          
+          if (reason.includes('appointment')) {
             appointmentsRevenue += payment.amount;
-          } else if (payment.reason?.startsWith('Subscription')) {
+          } else if (reason.includes('tier') || reason.includes('subscription')) {
             tiersRevenue += payment.amount;
           } else {
-            otherRevenue += payment.amount; // Manual payments, future batch purchases, etc.
+            otherRevenue += payment.amount; 
           }
         }
       }
