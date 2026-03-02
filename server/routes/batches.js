@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
         
         return {
           ...batch.toJSON(), 
-          allowed_tiers: batch.allowedTiers,
+          allowed_tiers: batch.allowedTiers || [], // DEFENSIVE FIX
           content_count: contentCount,
         };
       })
@@ -44,8 +44,8 @@ router.get('/:id', async (req, res) => {
       success: true,
       data: {
         ...batch.toJSON(), 
-        allowed_tiers: batch.allowedTiers,
-        content_items: contentItems,
+        allowed_tiers: batch.allowedTiers || [], // DEFENSIVE FIX
+        content_items: contentItems || [], // DEFENSIVE FIX
       },
     });
   } catch (error) {
