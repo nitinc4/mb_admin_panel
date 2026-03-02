@@ -101,10 +101,7 @@ io.on('connection', (socket) => {
   });
 });
 
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
-}
-
-export default app;
+// IMPORTANT: server.listen instead of app.listen
+server.listen(PORT, () => {
+  console.log(`Server & WebSockets running on http://localhost:${PORT}`);
+});
