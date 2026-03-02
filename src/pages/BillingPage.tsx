@@ -25,7 +25,7 @@ export default function BillingPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [paymentsRes, usersRes] = await Promise.all([fetch('${API_URL}/api/payments'), fetch('${API_URL}/api/users')]);
+      const [paymentsRes, usersRes] = await Promise.all([fetch(`${API_URL}/api/payments`), fetch(`${API_URL}/api/users`)]);
       const paymentsData = await paymentsRes.json();
       const usersData = await usersRes.json();
       if (paymentsData.success) setPayments(paymentsData.data);
@@ -55,7 +55,7 @@ export default function BillingPage() {
     if (!form.user_id) return alert("Select a user first!");
     try {
       const body = { ...form, paymentDate: form.status === 'paid' ? new Date().toISOString() : null };
-      const res = await fetch('${API_URL}/api/payments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const res = await fetch('${API_URL}/api/payments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const result = await res.json();
       if (result.success) {
         setPayments([...payments, result.data]);

@@ -50,7 +50,7 @@ export default function LiveClassModal({ liveClass, batches, onClose, onSave }: 
     try {
       const url = liveClass 
         ? `${API_URL}/api/live-classes/${liveClass.id}` 
-        : '${API_URL}/api/live-classes';
+        : `${API_URL}/api/live-classes`;
 
       const response = await fetch(url, {
         method: liveClass ? 'PUT' : 'POST',

@@ -19,7 +19,7 @@ export default function AppointmentsPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [apptsRes, usrRes] = await Promise.all([fetch('${API_URL}/api/appointments'), fetch('${API_URL}/api/users')]);
+      const [apptsRes, usrRes] = await Promise.all([fetch(`${API_URL}/api/appointments`), fetch(`${API_URL}/api/users`)]);
       const appts = await apptsRes.json(); const usr = await usrRes.json();
       if (appts.success) setAppointments(appts.data); if (usr.success) setUsers(usr.data);
     } catch (error) { console.error('Error:', error); } finally { setLoading(false); }
@@ -31,7 +31,7 @@ export default function AppointmentsPage() {
     if (!form.user_id || !form.title) return alert('User and Title are required');
     try {
       const scheduled_at = new Date(`${form.scheduled_at}T${form.scheduled_time}`).toISOString();
-      const response = await fetch('${API_URL}/api/appointments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, scheduled_at }) });
+      const response = await fetch(`${API_URL}/api/appointments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, scheduled_at }) });
       const result = await response.json();
       
       if (result.success) {
@@ -41,7 +41,7 @@ export default function AppointmentsPage() {
         
         // AUTO GENERATE UPCOMING INVOICE IN PAYMENTS SYSTEM
         if (result.data.cost > 0) {
-          await fetch('${API_URL}/api/payments', {
+          await fetch(`${API_URL}/api/payments`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               user_id: form.user_id, amount: result.data.cost, reason: `Appointment - ${result.data.title}`, dueDate: scheduled_at, status: 'upcoming', appointment_id: result.data.id

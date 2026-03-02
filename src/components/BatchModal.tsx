@@ -58,7 +58,7 @@ export default function BatchModal({ batch, tiers, onClose, onSave }: BatchModal
     try {
       const url = batch 
         ? `${API_URL}/api/batches/${batch.id}` 
-        : '${API_URL}/api/batches';
+        : `${API_URL}/api/batches`;
 
       const response = await fetch(url, {
         method: batch ? 'PUT' : 'POST',

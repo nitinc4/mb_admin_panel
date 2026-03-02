@@ -35,8 +35,8 @@ export default function LiveClassesPage() {
     try {
       setIsLoading(true);
       const [classesRes, batchesRes] = await Promise.all([
-        fetch('${API_URL}/api/live-classes'),
-        fetch('${API_URL}/api/batches')
+        fetch(`${API_URL}/api/live-classes`),
+        fetch(`${API_URL}/api/batches`)
       ]);
       
       const classesData = await classesRes.json();

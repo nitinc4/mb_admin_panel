@@ -47,8 +47,8 @@ export default function SettingsPage() {
     try {
       setLoading(true);
       const [categoriesRes, servicesRes] = await Promise.all([
-        fetch('${API_URL}/api/service-categories'),
-        fetch('${API_URL}/api/services'),
+        fetch(`${API_URL}/api/service-categories`),
+        fetch(`${API_URL}/api/services`),
       ]);
 
       const categoriesData = await categoriesRes.json();
@@ -66,7 +66,7 @@ export default function SettingsPage() {
   const handleAddCategory = async () => {
     if (!categoryForm.name) return;
     try {
-      const res = await fetch('${API_URL}/api/service-categories', {
+      const res = await fetch(`${API_URL}/api/service-categories`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(categoryForm),

@@ -32,7 +32,7 @@ export default function UserModal({ user, tiers, onClose, onSave }: UserModalPro
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const url = user ? `${API_URL}/api/users/${user.id}` : '${API_URL}/api/users';
+      const url = user ? `${API_URL}/api/users/${user.id}` : `${API_URL}/api/users`;
       const response = await fetch(url, {
         method: user ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },

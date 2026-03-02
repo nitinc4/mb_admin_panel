@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Upload } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface ContentItem {
   id: string;
@@ -50,7 +51,7 @@ export default function ContentModal({ content, batchId, onClose, onSave }: Cont
     try {
       const url = content
         ? `${API_URL}/api/content/${content.id}`
-        : '${API_URL}/api/content';
+        : `${API_URL}/api/content`;
 
       const response = await fetch(url, {
         method: content ? 'PUT' : 'POST',

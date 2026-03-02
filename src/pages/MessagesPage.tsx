@@ -26,14 +26,14 @@ export default function MessagesPage() {
   useEffect(() => {
     const fetchBatches = async () => {
       try {
-        const res = await fetch('${API_URL}/api/batches');
+        const res = await fetch(`${API_URL}/api/batches`);
         const data = await res.json();
         if (data.success) setBatches(data.data);
       } catch (error) { console.error('Error fetching batches:', error); }
     };
     fetchBatches();
 
-    const newSocket = io('${API_URL}');
+    const newSocket = io(`${API_URL}`);
     setSocket(newSocket);
     return () => { newSocket.close(); };
   }, []);

@@ -42,9 +42,9 @@ export default function NotificationsPage() {
     try {
       setLoading(true);
       const [notifRes, tiersRes, batchesRes] = await Promise.all([
-        fetch('${API_URL}/api/notifications'),
-        fetch('${API_URL}/api/tiers'),
-        fetch('${API_URL}/api/batches')
+        fetch(`${API_URL}/api/notifications`),
+        fetch(`${API_URL}/api/tiers`),
+        fetch(`${API_URL}/api/batches`)
       ]);
 
       const notifData = await notifRes.json();
