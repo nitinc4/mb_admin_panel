@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Search, Eye, FolderOpen, ArrowLeft, Calendar } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, FolderOpen, ArrowLeft, Calendar, Eye } from 'lucide-react';
 import BatchModal from '../components/BatchModal';
 import ContentModal from '../components/ContentModal'; 
 import { API_URL } from '../config';
@@ -258,10 +258,10 @@ export default function BatchesPage() {
 
     return (
       <div className="p-8 bg-cream min-h-full">
-        <div className="mb-6">
+        <div className="mb-8">
           <button
             onClick={() => setViewingBatchId(null)}
-            className="flex items-center gap-2 text-primary hover:opacity-80 font-medium mb-2 transition-opacity"
+            className="flex items-center gap-2 text-primary hover:opacity-80 font-medium mb-3 transition-opacity"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Batches
           </button>
@@ -289,7 +289,7 @@ export default function BatchesPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-gray-800">Content Items</h2>
             <button 
@@ -307,14 +307,14 @@ export default function BatchesPage() {
           ) : (
             <div className="space-y-4">
               {safeContent.map((item) => (
-                <div key={item.id} className="flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:bg-orange-50/30 transition-colors">
+                <div key={item.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-orange-50/30 transition-colors">
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${item.contentType === 'video' ? 'bg-orange-100' : 'bg-red-100'}`}>
-                      <FolderOpen className={`w-6 h-6 ${item.contentType === 'video' ? 'text-primary' : 'text-red-500'}`} />
+                      <FolderOpen className={`w-6 h-6 ${item.contentType === 'video' ? 'text-primary' : 'text-red-600'}`} />
                     </div>
                     <div>
                       <h3 className="font-bold text-gray-800">{item.title}</h3>
-                      <p className="text-sm text-gray-500 font-medium">
+                      <p className="text-sm font-medium text-gray-500">
                         {item.contentType === 'video'
                           ? `Duration: ${Math.floor((item.duration || 0) / 60)} min`
                           : `Size: ${((item.fileSize || 0) / 1024 / 1024).toFixed(1)} MB`}
@@ -363,8 +363,8 @@ export default function BatchesPage() {
         <p className="text-gray-600 mt-1">Manage batches and their content</p>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="border-b border-gray-100 bg-white">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="border-b border-gray-200 bg-white">
           <div className="flex items-center justify-between px-6 py-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -387,7 +387,7 @@ export default function BatchesPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-100">
+              <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Batch Name</th>
                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Duration</th>
@@ -401,13 +401,17 @@ export default function BatchesPage() {
                 {filteredBatches.length === 0 ? (
                   <tr><td colSpan={6} className="p-4 text-center text-gray-500">No batches found.</td></tr>
                 ) : filteredBatches.map((batch) => (
-                  <tr key={batch.id} className="hover:bg-orange-50/30 transition-colors">
+                  <tr 
+                    key={batch.id} 
+                    className="hover:bg-orange-50/30 cursor-pointer transition-colors"
+                    onClick={() => setViewingBatchId(batch.id)}
+                  >
                     <td className="px-6 py-4">
                       <div className="font-bold text-gray-900">{batch.name}</div>
-                      <div className="text-sm text-gray-500 font-medium">{batch.description}</div>
+                      <div className="text-sm font-medium text-gray-500 line-clamp-1">{batch.description}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-600 font-medium">
+                      <div className="text-sm font-medium text-gray-600">
                         {batch.start_date ? new Date(batch.start_date).toLocaleDateString() : 'N/A'} -{' '}
                         {batch.end_date ? new Date(batch.end_date).toLocaleDateString() : 'N/A'}
                       </div>
@@ -419,11 +423,11 @@ export default function BatchesPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1">
-                        {batch.allowed_tiers?.length ? batch.allowed_tiers.map((tier, index) => (
+                        {batch.allowed_tiers && batch.allowed_tiers.length > 0 ? batch.allowed_tiers.map((tier, index) => (
                           <span key={tier.id || index} className="px-3 py-1 text-xs font-bold rounded-full bg-orange-100 text-primary">
                             {tier.name}
                           </span>
-                        )) : <span className="text-sm text-gray-400 font-medium">None</span>}
+                        )) : <span className="text-sm font-medium text-gray-400">None</span>}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -433,13 +437,23 @@ export default function BatchesPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex justify-end gap-2">
-                        <button onClick={() => setViewingBatchId(batch.id)} className="p-2 text-gray-500 hover:text-primary hover:bg-orange-100 rounded-lg transition-colors" title="View Content">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setViewingBatchId(batch.id); }} 
+                          className="p-2 text-gray-500 hover:text-primary hover:bg-orange-100 rounded-lg transition-colors"
+                          title="View Content"
+                        >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button onClick={() => handleEditBatch(batch)} className="p-2 text-primary hover:bg-orange-100 rounded-lg transition-colors">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleEditBatch(batch); }} 
+                          className="p-2 text-primary hover:bg-orange-100 rounded-lg transition-colors"
+                        >
                           <Edit className="w-4 h-4" />
                         </button>
-                        <button onClick={() => handleDeleteBatch(batch.id)} className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleDeleteBatch(batch.id); }} 
+                          className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
+                        >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
