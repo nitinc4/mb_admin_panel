@@ -33,10 +33,10 @@ export default function BatchModal({ batch, tiers, onClose, onSave }: BatchModal
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    attendance: '',
-    assignment: '',
-    announcements: '',
-    tests: '',
+    attendance: '',    // Kept in state to preserve existing data on update
+    assignment: '',    // Kept in state to preserve existing data on update
+    announcements: '', // Kept in state to preserve existing data on update
+    tests: '',         // Kept in state to preserve existing data on update
     start_date: '',
     end_date: '',
     is_active: true,
@@ -44,7 +44,6 @@ export default function BatchModal({ batch, tiers, onClose, onSave }: BatchModal
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // DEFENSIVE FIX: Ensure tiers is always an array
   const safeTiers = tiers || [];
 
   useEffect(() => {
@@ -52,14 +51,13 @@ export default function BatchModal({ batch, tiers, onClose, onSave }: BatchModal
       setFormData({
         name: batch.name || '',
         description: batch.description || '',
-        attendance: batch.attendance || '',
-        assignment: batch.assignment || '',
-        announcements: batch.announcements || '',
-        tests: batch.tests || '',
+        attendance: batch.attendance || '',       // Preserve data
+        assignment: batch.assignment || '',       // Preserve data
+        announcements: batch.announcements || '', // Preserve data
+        tests: batch.tests || '',                 // Preserve data
         start_date: formatDateForInput(batch.start_date),
         end_date: formatDateForInput(batch.end_date),
         is_active: batch.isActive ?? true,
-        // DEFENSIVE FIX: Ensure allowed_tiers is an array before mapping
         tier_ids: Array.isArray(batch.allowed_tiers) ? batch.allowed_tiers.map((t) => t.id || t._id || '') : [],
       });
     }
@@ -133,49 +131,6 @@ export default function BatchModal({ batch, tiers, onClose, onSave }: BatchModal
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Attendance Info / Link</label>
-              <textarea
-                value={formData.attendance}
-                onChange={(e) => setFormData({ ...formData, attendance: e.target.value })}
-                rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Link or instructions..."
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Assignment Info / Link</label>
-              <textarea
-                value={formData.assignment}
-                onChange={(e) => setFormData({ ...formData, assignment: e.target.value })}
-                rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Link or instructions..."
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Announcements</label>
-              <textarea
-                value={formData.announcements}
-                onChange={(e) => setFormData({ ...formData, announcements: e.target.value })}
-                rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Latest news..."
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tests Info / Link</label>
-              <textarea
-                value={formData.tests}
-                onChange={(e) => setFormData({ ...formData, tests: e.target.value })}
-                rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Link to tests portal..."
-              />
-            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
