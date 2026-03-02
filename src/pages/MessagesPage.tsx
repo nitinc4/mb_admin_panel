@@ -56,7 +56,7 @@ export default function MessagesPage() {
     }
   }, [socket, selectedBatch]);
 
-const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (newMessage.trim() === '' || !selectedBatch || !socket) return;
 
@@ -68,7 +68,10 @@ const handleSendMessage = (e: React.FormEvent) => {
     };
 
     socket.emit('send_message', messageData);
-    setMessages((prev) => [...prev, { ...messageData, id: Date.now().toString(), createdAt: new Date().toISOString() }]);
+    
+    // FIX: Removed the optimistic UI update that was causing the duplicate message.
+    // The message will now render once the socket server bounces it back via 'receive_message'.
+    
     setNewMessage('');
   };
 
