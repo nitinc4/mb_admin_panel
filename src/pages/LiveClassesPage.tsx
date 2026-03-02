@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Video, Calendar, Clock, ExternalLink, Play, Square, Edit, Trash2 } from 'lucide-react';
 import LiveClassModal from '../components/LiveClassModal';
+import { API_URL } from '../config';
 
 interface Batch {
   id: string;

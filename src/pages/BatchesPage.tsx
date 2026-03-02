@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, Eye, FolderOpen, ArrowLeft } from 'lucide-react';
 import BatchModal from '../components/BatchModal';
 import ContentModal from '../components/ContentModal'; // <-- IMPORTED NEW MODAL
-import { API_URL } from `../config`;
+import { API_URL } from '../config';
 
 interface Tier { id: string; name: string; }
 interface Batch {

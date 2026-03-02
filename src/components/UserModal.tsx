@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface Tier { id: string; name: string; }
 interface User {

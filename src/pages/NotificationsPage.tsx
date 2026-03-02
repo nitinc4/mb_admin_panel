@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Bell, Plus, Calendar, Image as ImageIcon, Trash2, CheckCircle, Clock, Users, BookOpen } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface Tier { id: string; name: string; }
 interface Batch { id: string; name: string; }

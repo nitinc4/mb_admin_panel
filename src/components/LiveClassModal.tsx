@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Video } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface Batch {
   id: string;

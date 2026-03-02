@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Users, BookOpen, IndianRupee, TrendingUp } from 'lucide-react';
+import { API_URL } from '../config';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b']; // Blue, Green, Yellow
 
@@ -178,7 +179,7 @@ export default function DashboardPage() {
                   ))}
                 </Pie>
                 <Tooltip 
-                  formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Revenue']}
+                  formatter={(value) => [`₹${(value ?? 0).toLocaleString()}`, 'Revenue']}
                   contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                 />
                 <Legend 

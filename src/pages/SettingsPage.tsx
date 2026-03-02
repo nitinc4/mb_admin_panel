@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Trash2, Edit2, X } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface ServiceCategory {
   id: string;
