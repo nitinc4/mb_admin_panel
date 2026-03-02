@@ -159,7 +159,7 @@ export default function LiveClassModal({ liveClass, batches, onClose, onSave }: 
                 </div>
                 <div>
                   <span className="text-blue-700 font-medium">Meeting URL:</span>
-                  <p className="text-blue-900 font-mono text-xs mt-1 break-all">https://meet.jit.si/{generatedMeetingId}</p>
+                  <p className="text-blue-900 font-mono text-xs mt-1 break-all">https://meet.ffmuc.net/{generatedMeetingId}</p>
                 </div>
               </div>
               <p className="text-xs text-blue-700 mt-3">This URL will be automatically generated and shared with students in the selected batch</p>
