@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Search, Eye, FolderOpen, ArrowLeft } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Eye, FolderOpen, ArrowLeft, Calendar } from 'lucide-react';
 import BatchModal from '../components/BatchModal';
 import ContentModal from '../components/ContentModal'; 
 import { API_URL } from '../config';
@@ -9,6 +9,10 @@ interface Batch {
   id: string;
   name: string;
   description: string;
+  attendance?: string;
+  assignment?: string;
+  announcements?: string;
+  tests?: string;
   start_date: string;
   end_date: string;
   isActive: boolean;
@@ -26,6 +30,8 @@ interface ContentItem {
   fileSize: number;
   isPublished: boolean;
 }
+
+type EditableField = 'attendance' | 'assignment' | 'announcements' | 'tests';
 
 export default function BatchesPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,7 +52,12 @@ export default function BatchesPage() {
   const [isContentModalOpen, setIsContentModalOpen] = useState(false); 
   const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null); 
 
- const fetchInitialData = async () => {
+  // Inline Editing States
+  const [editingField, setEditingField] = useState<EditableField | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [isSavingField, setIsSavingField] = useState(false);
+
+  const fetchInitialData = async () => {
     try {
       setIsLoading(true);
       const [batchesRes, tiersRes] = await Promise.all([
@@ -57,8 +68,8 @@ export default function BatchesPage() {
       const batchesData = await batchesRes.json();
       const tiersData = await tiersRes.json();
       
-      if (batchesData.success) setBatches(batchesData.data);
-      if (tiersData.success) setTiers(tiersData.data);
+      if (batchesData.success) setBatches(batchesData.data || []);
+      if (tiersData.success) setTiers(tiersData.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -73,7 +84,7 @@ export default function BatchesPage() {
   const fetchBatchContent = async (batchId: string) => {
     setIsLoadingContent(true);
     try {
-      const res = await fetch(`${API_URL}/api/batches/${batchId}`); 
+      const res = await fetch(`${API_URL}/api/batches/${batchId}`);
       const data = await res.json();
       if (data.success) {
         setBatchDetails({
@@ -91,6 +102,7 @@ export default function BatchesPage() {
   useEffect(() => {
     if (viewingBatchId) {
       fetchBatchContent(viewingBatchId);
+      setEditingField(null); // Reset inline edit state when switching batches
     } else {
       setBatchDetails(null);
     }
@@ -119,8 +131,114 @@ export default function BatchesPage() {
     }
   };
 
-  const filteredBatches = batches.filter((batch) =>
-    (batch.name || '').toLowerCase().includes(searchQuery.toLowerCase())
+  // --- Handle Inline Save for Details View ---
+  const handleSaveField = async () => {
+    if (!viewingBatchId || !editingField || !batchDetails) return;
+    setIsSavingField(true);
+    
+    const { batch } = batchDetails;
+    
+    // We rebuild the entire batch payload to satisfy the PUT endpoint
+    const payload = {
+      name: batch.name,
+      description: batch.description,
+      start_date: batch.start_date,
+      end_date: batch.end_date,
+      is_active: batch.isActive,
+      tier_ids: batch.allowed_tiers?.map(t => t.id || t._id) || [],
+      attendance: editingField === 'attendance' ? editValue : batch.attendance,
+      assignment: editingField === 'assignment' ? editValue : batch.assignment,
+      announcements: editingField === 'announcements' ? editValue : batch.announcements,
+      tests: editingField === 'tests' ? editValue : batch.tests,
+    };
+
+    try {
+      const res = await fetch(`${API_URL}/api/batches/${viewingBatchId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        setEditingField(null);
+        fetchBatchContent(viewingBatchId); 
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSavingField(false);
+    }
+  };
+
+  // --- Inline Field Renderer ---
+  const renderEditableField = (
+    field: EditableField, 
+    title: string, 
+    colorClass: string, 
+    lightBg: string, 
+    borderClass: string, 
+    textColor: string
+  ) => {
+    const isEditing = editingField === field;
+    const value = batchDetails?.batch[field] || '';
+
+    return (
+      <div className={`${lightBg} p-4 rounded-lg border ${borderClass} relative group transition-all`}>
+         <div className="flex justify-between items-start mb-2">
+           <span className={`font-semibold ${colorClass} block`}>{title}</span>
+           {!isEditing && (
+             <button 
+               onClick={() => { setEditingField(field); setEditValue(value); }} 
+               className="text-gray-400 hover:text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity"
+               title="Edit"
+             >
+               <Edit className="w-4 h-4" />
+             </button>
+           )}
+         </div>
+         
+         {isEditing ? (
+           <div className="mt-2">
+             <textarea 
+               autoFocus
+               value={editValue}
+               onChange={(e) => setEditValue(e.target.value)}
+               className="w-full p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white text-gray-800"
+               rows={3}
+               placeholder={`Enter ${title.toLowerCase()} details...`}
+             />
+             <div className="flex gap-2 mt-3 justify-end">
+               <button 
+                 onClick={() => setEditingField(null)} 
+                 disabled={isSavingField} 
+                 className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-200 rounded hover:bg-gray-300 transition-colors"
+               >
+                 Cancel
+               </button>
+               <button 
+                 onClick={handleSaveField} 
+                 disabled={isSavingField} 
+                 className="px-3 py-1.5 text-xs font-medium text-white bg-primary rounded hover:opacity-90 transition-opacity"
+               >
+                 {isSavingField ? 'Saving...' : 'Save'}
+               </button>
+             </div>
+           </div>
+         ) : (
+           <div 
+             onClick={() => { setEditingField(field); setEditValue(value); }} 
+             className="cursor-text min-h-[40px] rounded hover:bg-white/50 p-1 -ml-1 transition-colors"
+           >
+             <p className={`${textColor} whitespace-pre-wrap ${!value ? 'italic opacity-60 text-sm' : ''}`}>
+               {value || 'Click here to add...'}
+             </p>
+           </div>
+         )}
+      </div>
+    );
+  };
+
+  const filteredBatches = (batches || []).filter((batch) =>
+    (batch.name || '').toLowerCase().includes((searchQuery || '').toLowerCase())
   );
 
   const handleEditBatch = (batch: Batch) => {
@@ -136,6 +254,8 @@ export default function BatchesPage() {
   // ----- VIEW 1: DETAILED CONTENT VIEW -----
   if (viewingBatchId && batchDetails) {
     const { batch, content } = batchDetails;
+    const safeContent = content || [];
+
     return (
       <div className="p-8 bg-cream min-h-full">
         <div className="mb-6">
@@ -145,8 +265,28 @@ export default function BatchesPage() {
           >
             <ArrowLeft className="w-4 h-4" /> Back to Batches
           </button>
+          
           <h1 className="text-3xl font-bold text-gray-800">{batch.name}</h1>
-          <p className="text-gray-600 mt-1">{batch.description}</p>
+          <p className="text-gray-600 mt-2 text-lg">{batch.description || "No description provided."}</p>
+          
+          <div className="flex gap-6 mt-4 text-sm text-gray-700">
+             <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-gray-500" />
+                <span className="font-semibold">Start:</span> {batch.start_date ? new Date(batch.start_date).toLocaleDateString() : 'TBA'}
+             </div>
+             <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-gray-500" />
+                <span className="font-semibold">End:</span> {batch.end_date ? new Date(batch.end_date).toLocaleDateString() : 'TBA'}
+             </div>
+          </div>
+
+          {/* INLINE EDITABLE FIELDS GRID */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6 text-sm">
+             {renderEditableField('attendance', 'Attendance', 'text-blue-800', 'bg-blue-50', 'border-blue-100', 'text-blue-900')}
+             {renderEditableField('assignment', 'Assignment', 'text-purple-800', 'bg-purple-50', 'border-purple-100', 'text-purple-900')}
+             {renderEditableField('announcements', 'Announcements', 'text-orange-800', 'bg-orange-50', 'border-orange-100', 'text-orange-900')}
+             {renderEditableField('tests', 'Tests', 'text-green-800', 'bg-green-50', 'border-green-100', 'text-green-900')}
+          </div>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -162,11 +302,11 @@ export default function BatchesPage() {
 
           {isLoadingContent ? (
              <p className="text-gray-500">Loading content...</p>
-          ) : content.length === 0 ? (
+          ) : safeContent.length === 0 ? (
              <p className="text-gray-500 italic p-4 text-center border rounded border-dashed border-gray-300">No content items in this batch yet.</p>
           ) : (
             <div className="space-y-4">
-              {content.map((item) => (
+              {safeContent.map((item) => (
                 <div key={item.id} className="flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:bg-orange-50/30 transition-colors">
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${item.contentType === 'video' ? 'bg-orange-100' : 'bg-red-100'}`}>
@@ -324,6 +464,10 @@ export default function BatchesPage() {
             setIsBatchModalOpen(false);
             setSelectedBatch(null);
             fetchInitialData();
+            // If editing the currently viewed batch, refresh details too
+            if (viewingBatchId === selectedBatch?.id) {
+               fetchBatchContent(viewingBatchId);
+            }
           }}
         />
       )}
