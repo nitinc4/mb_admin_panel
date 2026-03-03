@@ -11,12 +11,6 @@ const generateSlots = (dayIndex) => {
   return ["11:00 AM - 12:00 PM", "12:00 PM - 01:00 PM", "01:00 PM - 02:00 PM", "02:00 PM - 03:00 PM", "03:00 PM - 04:00 PM"];
 };
 
-// Safe UTC Date parser to avoid all Timezone Shifts
-const parseDateSafe = (dateStr) => {
-  const [year, month, day] = dateStr.split('-');
-  return new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
-};
-
 // Admin & App: Get config
 router.get('/config', async (req, res) => {
   try {
@@ -43,21 +37,26 @@ router.get('/available-slots', async (req, res) => {
     const { date } = req.query; 
     if (!date) return res.status(400).json({ success: false, message: 'Date is required' });
 
-    const queryDate = parseDateSafe(date);
-    const dayIndex = queryDate.getUTCDay();
-    const standardSlots = generateSlots(dayIndex);
+    // Enforce local boundary to prevent timezone skipping
+    const [year, month, day] = date.split('-').map(Number);
+    const queryDate = new Date(year, month - 1, day);
+    const dayIndex = queryDate.getDay();
 
+    const standardSlots = generateSlots(dayIndex);
     if (standardSlots.length === 0) return res.json({ success: true, data: [] });
 
-    const endOfDay = new Date(queryDate);
-    endOfDay.setUTCHours(23, 59, 59, 999);
+    const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
+    const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
 
     const bookedAppointments = await Appointment.find({
-      date: { $gte: queryDate, $lte: endOfDay },
+      $or: [
+         { date: { $gte: startOfDay, $lte: endOfDay } },
+         { scheduledAt: { $gte: startOfDay, $lte: endOfDay } }
+      ],
       status: { $in: ['confirmed', 'pending', 'in_progress'] }
     });
 
-    const bookedSlots = bookedAppointments.map(app => app.timeSlot);
+    const bookedSlots = bookedAppointments.map(app => app.timeSlot).filter(Boolean);
     const availableSlots = standardSlots.filter(slot => !bookedSlots.includes(slot));
 
     res.json({ success: true, data: availableSlots });
@@ -68,13 +67,18 @@ router.get('/available-slots', async (req, res) => {
 router.post('/book', async (req, res) => {
   try {
     const { userId, date, timeSlot, amount, txnId } = req.body;
-    const appointmentDate = parseDateSafe(date);
+    if (!userId || !date || !timeSlot) return res.status(400).json({ success: false, message: 'Missing fields' });
+
+    const [year, month, day] = date.split('-').map(Number);
+    const appointmentDate = new Date(year, month - 1, day, 0, 0, 0, 0);
     
-    const endOfDay = new Date(appointmentDate);
-    endOfDay.setUTCHours(23, 59, 59, 999);
+    const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
+    const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
 
     const existing = await Appointment.findOne({
-      date: { $gte: appointmentDate, $lte: endOfDay }, timeSlot, status: { $in: ['confirmed', 'pending', 'in_progress'] }
+      $or: [{ date: { $gte: startOfDay, $lte: endOfDay } }, { scheduledAt: { $gte: startOfDay, $lte: endOfDay } }],
+      timeSlot, 
+      status: { $in: ['confirmed', 'pending', 'in_progress'] }
     });
 
     if (existing) return res.status(400).json({ success: false, message: 'Slot was just booked by someone else.' });
@@ -93,16 +97,17 @@ router.post('/book', async (req, res) => {
       status: 'pending'
     });
 
-    // Added explicitly mapped user reference to prevent billing detail loss
+    // explicitly map `userId` to `user` to sync with Billing accurately
     await Payment.create({
-      user: userId,
+      user: userId, 
       amount: amount,
       paymentType: 'online',
       reason: `Appointment - From app - ${timeSlot}`,
       dueDate: appointmentDate,
       paymentDate: new Date(),
       status: 'paid',
-      referenceId: txnId || `TXN_${Date.now()}`
+      referenceId: txnId || `TXN_${Date.now()}`,
+      appointment: newAppointment._id
     });
 
     res.json({ success: true, data: newAppointment });
@@ -112,7 +117,7 @@ router.post('/book', async (req, res) => {
 // Admin: GET ALL
 router.get('/', async (req, res) => {
   try {
-    const appointments = await Appointment.find().populate('user', 'name email phone').sort({ date: -1 });
+    const appointments = await Appointment.find().populate('user', 'name email phone').sort({ date: -1, scheduledAt: -1 });
     res.json({ success: true, data: appointments });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
@@ -121,17 +126,21 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { user_id, title, date, timeSlot, notes } = req.body;
+    if (!user_id || !title || !date || !timeSlot) return res.status(400).json({ success: false, message: 'Missing fields' });
     
     let config = await AppointmentConfig.findOne({ key: 'standard_price' });
-    const cost = config ? config.price : 500;
+    const cost = config && config.price !== undefined ? Number(config.price) : 500;
 
-    const appointmentDate = parseDateSafe(date);
-    const endOfDay = new Date(appointmentDate);
-    endOfDay.setUTCHours(23, 59, 59, 999);
+    const [year, month, day] = date.split('-').map(Number);
+    const appointmentDate = new Date(year, month - 1, day, 0, 0, 0, 0);
 
-    // Collision check to prevent 500 error
+    const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
+    const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
+
     const existing = await Appointment.findOne({
-      date: { $gte: appointmentDate, $lte: endOfDay }, timeSlot, status: { $in: ['confirmed', 'pending', 'in_progress'] }
+      $or: [{ date: { $gte: startOfDay, $lte: endOfDay } }, { scheduledAt: { $gte: startOfDay, $lte: endOfDay } }],
+      timeSlot, 
+      status: { $in: ['confirmed', 'pending', 'in_progress'] }
     });
 
     if (existing) return res.status(400).json({ success: false, message: 'This time slot is already booked.' });
@@ -149,19 +158,23 @@ router.post('/', async (req, res) => {
       status: 'pending'
     });
 
-    // Logging due payment safely for manual booking
     await Payment.create({
       user: user_id,
       amount: cost,
-      paymentType: 'online',
+      paymentType: 'cash',
       reason: `Appointment - Admin Booking - ${timeSlot}`,
       dueDate: appointmentDate,
-      status: 'due' // Standard DB enum safe
+      status: 'due',
+      appointment: appointment._id
     });
 
     const populated = await Appointment.findById(appointment._id).populate('user', 'name email phone');
     res.json({ success: true, data: populated });
-  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error) { 
+    // Log to Node console but send clean JSON to React to prevent HTML parse crash
+    console.error("Manual Booking Error: ", error);
+    res.status(500).json({ success: false, error: error.message }); 
+  }
 });
 
 // Admin: PUT Update Status

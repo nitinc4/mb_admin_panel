@@ -3,7 +3,7 @@ import { Plus, X, DollarSign, Trash2 } from 'lucide-react';
 import { useApp } from '../context/AppContext'; 
 import { API_URL } from '../config';
 
-interface User { id: string; email: string; name: string; phone?: string; }
+interface User { id?: string; _id?: string; email: string; name: string; phone?: string; }
 interface Appointment { 
   id: string; 
   _id?: string;
@@ -219,14 +219,17 @@ export default function AppointmentsPage() {
                       {colAppointments.map(app => {
                         const safeId = app.id || app._id || Math.random().toString();
                         
-                        // Strict Date extraction using UTC to prevent +5:30 Timezone offset
+                        // Strict format to completely ignore +5:30 timezone shifting jumps
                         let displayDate = 'N/A';
                         if (app.date && app.timeSlot) {
-                           const d = new Date(app.date);
-                           displayDate = `${d.getUTCDate().toString().padStart(2, '0')}/${(d.getUTCMonth()+1).toString().padStart(2, '0')}/${d.getUTCFullYear()} at ${app.timeSlot}`;
+                           const pureDate = app.date.split('T')[0];
+                           const [y, m, d] = pureDate.split('-');
+                           displayDate = `${d}/${m}/${y} at ${app.timeSlot}`;
                         } else if (app.scheduledAt) {
-                           const d = new Date(app.scheduledAt);
-                           displayDate = `${d.getUTCDate().toString().padStart(2, '0')}/${(d.getUTCMonth()+1).toString().padStart(2, '0')}/${d.getUTCFullYear()} at ${d.getUTCHours().toString().padStart(2, '0')}:${d.getUTCMinutes().toString().padStart(2, '0')}`;
+                           const pureDate = app.scheduledAt.split('T')[0];
+                           const [y, m, d] = pureDate.split('-');
+                           const dt = new Date(app.scheduledAt);
+                           displayDate = `${d}/${m}/${y} at ${dt.getHours().toString().padStart(2,'0')}:${dt.getMinutes().toString().padStart(2,'0')}`;
                         }
 
                         const isAppBooking = !!app.txnId || !!app.timeSlot;
@@ -284,7 +287,7 @@ export default function AppointmentsPage() {
                 <label className="block text-sm font-semibold text-gray-700 mb-1">User *</label>
                 <select value={form.user_id} onChange={e => setForm({...form, user_id: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all">
                   <option value="">Select User</option>
-                  {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  {users.map(u => <option key={u.id || u._id} value={u.id || u._id}>{u.name}</option>)}
                 </select>
               </div>
               <div>
@@ -299,7 +302,7 @@ export default function AppointmentsPage() {
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Time Slot *</label>
                   <select value={form.timeSlot} onChange={e => setForm({...form, timeSlot: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all disabled:bg-gray-100" disabled={isLoadingSlots || availableSlots.length === 0}>
-                    {isLoadingSlots ? <option>Loading...</option> : 
+                    {isLoadingSlots ? <option value="">Loading...</option> : 
                       availableSlots.length === 0 ? <option value="">None Available</option> :
                       availableSlots.map(slot => <option key={slot} value={slot}>{slot}</option>)
                     }
