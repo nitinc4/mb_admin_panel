@@ -102,58 +102,72 @@ export default function AppointmentsPage() {
       </div>
 
       <div className="flex flex-nowrap overflow-x-auto gap-6 pb-6 items-start">
-        {statuses.map(status => (
-          <div key={status} className="flex-shrink-0 w-80 bg-white rounded-xl shadow-sm border border-gray-100 p-4 max-h-[calc(100vh-200px)] overflow-y-auto">
-            <h3 className="font-semibold text-gray-800 mb-4 capitalize flex items-center justify-between sticky top-0 bg-white z-10 py-1">
-              <span>{status.replace('_', ' ')}</span>
-              <span className="bg-orange-100 text-primary rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">
-                {appointments.filter(a => a.status === status).length}
-              </span>
-            </h3>
+        {statuses.map(status => {
+          const colAppointments = appointments.filter(a => a.status === status);
+          
+          return (
+            <div key={status} className="flex-shrink-0 w-80 bg-gray-50/50 rounded-xl shadow-sm border border-gray-200 flex flex-col max-h-[calc(100vh-180px)]">
+              
+              {/* SOLID HEADER STRIP - Keeps title fixed, prevents overlapping text */}
+              <div className="px-5 py-4 bg-white border-b border-gray-200 rounded-t-xl flex items-center justify-between z-10 shadow-sm">
+                <h3 className="font-bold text-gray-800 uppercase tracking-wider text-sm">
+                  {status.replace('_', ' ')}
+                </h3>
+                <span className="bg-orange-100 text-primary rounded-full min-w-[24px] h-6 px-1.5 flex items-center justify-center text-xs font-bold">
+                  {colAppointments.length}
+                </span>
+              </div>
 
-            <div className="space-y-3">
-              {appointments.filter(a => a.status === status).map(appointment => (
-                <div key={appointment.id} className="p-4 rounded-lg border-l-4 border-l-primary bg-gray-50 hover:bg-white shadow-sm hover:shadow-md transition-all">
-                  <div className="mb-3">
-                    <p className="font-bold text-gray-800 text-sm">{appointment.title}</p>
-                    <p className="text-xs text-gray-500">{appointment.user?.name || 'Unknown User'}</p>
-                  </div>
+              {/* SCROLLABLE CONTENT AREA */}
+              <div className="p-4 overflow-y-auto flex-1 space-y-3">
+                {colAppointments.map(appointment => (
+                  <div key={appointment.id} className="p-4 rounded-lg border border-gray-100 border-l-4 border-l-primary bg-white shadow-sm hover:shadow-md transition-all">
+                    <div className="mb-3">
+                      <p className="font-bold text-gray-800 text-sm">{appointment.title}</p>
+                      <p className="text-xs text-gray-500">{appointment.user?.name || 'Unknown User'}</p>
+                    </div>
 
-                  <div className="space-y-1.5 mb-4 text-xs text-gray-600 font-medium">
-                    <div className="flex items-center gap-2"><Calendar size={14} className="text-primary"/><span>{formatDate(appointment.scheduledAt)}</span></div>
-                    <div className="flex items-center gap-2"><Clock size={14} className="text-primary"/><span>{formatTime(appointment.scheduledAt)}</span></div>
-                    <div className="flex items-center gap-2">
-                      <DollarSign size={14} className="text-primary"/>
-                      <span>₹{appointment.paymentAmount} {appointment.isPaid ? <span className="text-green-600 font-bold ml-1">(Paid)</span> : <span className="text-red-500 font-bold ml-1">(Unpaid)</span>}</span>
+                    <div className="space-y-1.5 mb-4 text-xs text-gray-600 font-medium">
+                      <div className="flex items-center gap-2"><Calendar size={14} className="text-primary"/><span>{formatDate(appointment.scheduledAt)}</span></div>
+                      <div className="flex items-center gap-2"><Clock size={14} className="text-primary"/><span>{formatTime(appointment.scheduledAt)}</span></div>
+                      <div className="flex items-center gap-2">
+                        <DollarSign size={14} className="text-primary"/>
+                        <span>₹{appointment.paymentAmount} {appointment.isPaid ? <span className="text-green-600 font-bold ml-1">(Paid)</span> : <span className="text-red-500 font-bold ml-1">(Unpaid)</span>}</span>
+                      </div>
+                    </div>
+
+                    {appointment.notes && <p className="text-xs text-gray-600 mb-4 p-2 bg-orange-50/50 rounded border border-orange-100 italic">"{appointment.notes}"</p>}
+
+                    <div className="flex flex-col gap-2">
+                      {!appointment.isPaid && appointment.paymentAmount > 0 && (
+                        <button onClick={() => handleRouteToPayment(appointment)} className="w-full px-2 py-2 text-xs bg-orange-50 text-primary font-bold border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors flex items-center justify-center gap-1">
+                          <ExternalLink size={12} /> Collect Payment
+                        </button>
+                      )}
+
+                      <select value={status} onChange={e => handleStatusChange(appointment.id, e.target.value)} className="w-full px-2 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg focus:ring-primary focus:border-primary cursor-pointer outline-none">
+                        {statuses.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}</option>)}
+                      </select>
+
+                      <button onClick={() => handleDeleteAppointment(appointment.id)} className="w-full px-2 py-1.5 text-xs font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                        Delete
+                      </button>
                     </div>
                   </div>
-
-                  {appointment.notes && <p className="text-xs text-gray-600 mb-4 p-2 bg-white rounded border border-gray-100 italic">"{appointment.notes}"</p>}
-
-                  <div className="flex flex-col gap-2">
-                    {!appointment.isPaid && appointment.paymentAmount > 0 && (
-                      <button onClick={() => handleRouteToPayment(appointment)} className="w-full px-2 py-2 text-xs bg-orange-50 text-primary font-bold border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors flex items-center justify-center gap-1">
-                        <ExternalLink size={12} /> Collect Payment
-                      </button>
-                    )}
-
-                    <select value={status} onChange={e => handleStatusChange(appointment.id, e.target.value)} className="w-full px-2 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg focus:ring-primary focus:border-primary cursor-pointer">
-                      {statuses.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}</option>)}
-                    </select>
-
-                    <button onClick={() => handleDeleteAppointment(appointment.id)} className="w-full px-2 py-1.5 text-xs font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                      Delete
-                    </button>
+                ))}
+                {colAppointments.length === 0 && (
+                  <div className="text-center text-gray-400 text-sm font-medium py-8">
+                    No appointments
                   </div>
-                </div>
-              ))}
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-gray-800">New Appointment</h2>
@@ -192,8 +206,8 @@ export default function AppointmentsPage() {
               </div>
             </div>
             <div className="flex gap-3 mt-8">
-              <button onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 border border-gray-300 font-semibold text-gray-700 rounded-xl hover:bg-gray-50 transition-colors">Cancel</button>
-              <button onClick={handleCreateAppointment} className="flex-1 px-4 py-2 bg-primary font-semibold text-white rounded-xl hover:opacity-90 transition-opacity">Save Appointment</button>
+              <button onClick={() => setShowModal(false)} className="flex-1 px-4 py-3 border border-gray-300 font-semibold text-gray-700 rounded-xl hover:bg-gray-50 transition-colors">Cancel</button>
+              <button onClick={handleCreateAppointment} className="flex-1 px-4 py-3 bg-primary font-semibold text-white rounded-xl hover:opacity-90 transition-opacity">Save Appointment</button>
             </div>
           </div>
         </div>
