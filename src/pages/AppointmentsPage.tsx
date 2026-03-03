@@ -37,12 +37,14 @@ export default function AppointmentsPage() {
   const [price, setPrice] = useState('500');
   const [isSavingPrice, setIsSavingPrice] = useState(false);
 
-  // Form uses standard slots now, no custom time input, no cost input
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+
   const [form, setForm] = useState({ 
     user_id: '', 
     title: '', 
     date: getLocalToday(), 
-    timeSlot: '11:00 AM - 12:00 PM', 
+    timeSlot: '', 
     notes: '' 
   });
 
@@ -72,6 +74,26 @@ export default function AppointmentsPage() {
 
   useEffect(() => { fetchData(); }, []);
 
+  // Fetch Available Slots Dynamically for Admin Modal
+  useEffect(() => {
+    if (showModal && form.date) {
+      setIsLoadingSlots(true);
+      fetch(`${API_URL}/api/appointments/available-slots?date=${form.date}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            setAvailableSlots(data.data);
+            if (data.data.length > 0 && !data.data.includes(form.timeSlot)) {
+              setForm(f => ({ ...f, timeSlot: data.data[0] }));
+            } else if (data.data.length === 0) {
+              setForm(f => ({ ...f, timeSlot: '' }));
+            }
+          }
+        })
+        .finally(() => setIsLoadingSlots(false));
+    }
+  }, [form.date, showModal]);
+
   const handleUpdatePrice = async () => {
     setIsSavingPrice(true);
     try {
@@ -95,7 +117,7 @@ export default function AppointmentsPage() {
   };
 
   const handleCreateAppointment = async () => {
-    if (!form.user_id || !form.title) return alert('User and Title are required');
+    if (!form.user_id || !form.title || !form.timeSlot) return alert('User, Title, and Time Slot are required.');
     try {
       const response = await fetch(`${API_URL}/api/appointments`, { 
         method: 'POST', 
@@ -107,7 +129,9 @@ export default function AppointmentsPage() {
       if (result.success) {
         setAppointments([result.data, ...appointments]);
         setShowModal(false);
-        setForm({ user_id: '', title: '', date: getLocalToday(), timeSlot: '11:00 AM - 12:00 PM', notes: '' });
+        setForm({ user_id: '', title: '', date: getLocalToday(), timeSlot: '', notes: '' });
+      } else {
+        alert(result.message || 'Error booking slot');
       }
     } catch (error) { console.error(error); }
   };
@@ -165,7 +189,7 @@ export default function AppointmentsPage() {
             {isSavingPrice ? 'Saving...' : 'Update Config'}
           </button>
         </div>
-        <p className="text-xs text-gray-500 mt-2">This is the amount users will be charged in the mobile app. All new admin bookings will also log a pending invoice for this amount.</p>
+        <p className="text-xs text-gray-500 mt-2">This is the default amount users will be charged. Admin manual bookings log an unpaid invoice for this amount.</p>
       </div>
 
       <div className="space-y-8 pb-10">
@@ -187,7 +211,7 @@ export default function AppointmentsPage() {
                          <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Username</th>
                          <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Email</th>
                          <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Phone Number</th>
-                         <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-center">From Mantrika Brahma App</th>
+                         <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-center">From App</th>
                          <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-right">Actions</th>
                       </tr>
                    </thead>
@@ -195,14 +219,14 @@ export default function AppointmentsPage() {
                       {colAppointments.map(app => {
                         const safeId = app.id || app._id || Math.random().toString();
                         
-                        // Strict Date extraction to prevent +5:30 Timezone offset issues
+                        // Strict Date extraction using UTC to prevent +5:30 Timezone offset
                         let displayDate = 'N/A';
                         if (app.date && app.timeSlot) {
                            const d = new Date(app.date);
-                           displayDate = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth()+1).toString().padStart(2, '0')}/${d.getFullYear()} at ${app.timeSlot}`;
+                           displayDate = `${d.getUTCDate().toString().padStart(2, '0')}/${(d.getUTCMonth()+1).toString().padStart(2, '0')}/${d.getUTCFullYear()} at ${app.timeSlot}`;
                         } else if (app.scheduledAt) {
                            const d = new Date(app.scheduledAt);
-                           displayDate = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth()+1).toString().padStart(2, '0')}/${d.getFullYear()} at ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+                           displayDate = `${d.getUTCDate().toString().padStart(2, '0')}/${(d.getUTCMonth()+1).toString().padStart(2, '0')}/${d.getUTCFullYear()} at ${d.getUTCHours().toString().padStart(2, '0')}:${d.getUTCMinutes().toString().padStart(2, '0')}`;
                         }
 
                         const isAppBooking = !!app.txnId || !!app.timeSlot;
@@ -274,12 +298,11 @@ export default function AppointmentsPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Time Slot *</label>
-                  <select value={form.timeSlot} onChange={e => setForm({...form, timeSlot: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all">
-                    <option value="11:00 AM - 12:00 PM">11:00 AM - 12:00 PM</option>
-                    <option value="12:00 PM - 01:00 PM">12:00 PM - 01:00 PM</option>
-                    <option value="01:00 PM - 02:00 PM">01:00 PM - 02:00 PM</option>
-                    <option value="02:00 PM - 03:00 PM">02:00 PM - 03:00 PM</option>
-                    <option value="03:00 PM - 04:00 PM">03:00 PM - 04:00 PM</option>
+                  <select value={form.timeSlot} onChange={e => setForm({...form, timeSlot: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all disabled:bg-gray-100" disabled={isLoadingSlots || availableSlots.length === 0}>
+                    {isLoadingSlots ? <option>Loading...</option> : 
+                      availableSlots.length === 0 ? <option value="">None Available</option> :
+                      availableSlots.map(slot => <option key={slot} value={slot}>{slot}</option>)
+                    }
                   </select>
                 </div>
               </div>
