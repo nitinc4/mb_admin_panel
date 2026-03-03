@@ -46,7 +46,7 @@ router.post('/', async (req, res) => {
     }
 
     const meetingId = `MantrikaBrahma_${batch.name.replace(/\s+/g, '_')}_${Date.now()}`;
-    const meetingUrl = `https://meet.jit.si/${meetingId}`;
+    const meetingUrl = `https://meet.ffmuc.net/${meetingId}`;
 
     const data = await LiveClass.create({
       batch: batch_id,
