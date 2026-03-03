@@ -24,19 +24,24 @@ interface BatchModalProps {
   onSave: () => void;
 }
 
+// Fix: Local date formatting instead of UTC splitting
 const formatDateForInput = (dateString?: string) => {
   if (!dateString) return '';
-  return new Date(dateString).toISOString().split('T')[0];
+  const date = new Date(dateString);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 };
 
 export default function BatchModal({ batch, tiers, onClose, onSave }: BatchModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    attendance: '',    // Kept in state to preserve existing data on update
-    assignment: '',    // Kept in state to preserve existing data on update
-    announcements: '', // Kept in state to preserve existing data on update
-    tests: '',         // Kept in state to preserve existing data on update
+    attendance: '',    
+    assignment: '',    
+    announcements: '', 
+    tests: '',         
     start_date: '',
     end_date: '',
     is_active: true,
@@ -51,10 +56,10 @@ export default function BatchModal({ batch, tiers, onClose, onSave }: BatchModal
       setFormData({
         name: batch.name || '',
         description: batch.description || '',
-        attendance: batch.attendance || '',       // Preserve data
-        assignment: batch.assignment || '',       // Preserve data
-        announcements: batch.announcements || '', // Preserve data
-        tests: batch.tests || '',                 // Preserve data
+        attendance: batch.attendance || '',       
+        assignment: batch.assignment || '',       
+        announcements: batch.announcements || '', 
+        tests: batch.tests || '',                 
         start_date: formatDateForInput(batch.start_date),
         end_date: formatDateForInput(batch.end_date),
         is_active: batch.isActive ?? true,
@@ -101,62 +106,62 @@ export default function BatchModal({ batch, tiers, onClose, onSave }: BatchModal
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white flex items-center justify-between p-6 border-b border-gray-200 z-10">
           <h2 className="text-xl font-bold text-gray-800">
             {batch ? 'Edit Batch' : 'Create New Batch'}
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <X className="w-5 h-5 text-gray-500" />
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-800 transition-colors">
+            <X size={20} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Batch Name</label>
+            <label className="block text-sm font-semibold mb-1 text-gray-700">Batch Name</label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary transition-all"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Overview / Description</label>
+            <label className="block text-sm font-semibold mb-1 text-gray-700">Overview / Description</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary transition-all"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <label className="block text-sm font-semibold mb-1 text-gray-700">Start Date</label>
               <input
                 type="date"
                 value={formData.start_date}
                 onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary transition-all"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <label className="block text-sm font-semibold mb-1 text-gray-700">End Date</label>
               <input
                 type="date"
                 value={formData.end_date}
                 onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary transition-all"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Access Restrictions</label>
-            <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-gray-50">
+            <label className="block text-sm font-semibold mb-2 text-gray-700">Access Restrictions</label>
+            <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-xl p-2 bg-gray-50">
               {safeTiers.length === 0 ? (
                 <p className="text-sm text-gray-500 p-2">No tiers found. Create a tier first.</p>
               ) : safeTiers.map((tier) => (
@@ -165,31 +170,31 @@ export default function BatchModal({ batch, tiers, onClose, onSave }: BatchModal
                     type="checkbox"
                     checked={formData.tier_ids.includes(tier.id)}
                     onChange={() => handleTierToggle(tier.id)}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
                   />
                   <span className="ml-3 text-sm font-medium text-gray-700">{tier.name}</span>
                 </label>
               ))}
             </div>
-            <p className="text-xs text-gray-500 mt-2">Select which user tiers can access this batch</p>
+            <p className="text-xs text-gray-500 mt-2 font-medium">Select which user tiers can access this batch</p>
           </div>
 
-          <div className="flex items-center bg-gray-50 p-3 rounded-lg border border-gray-200">
+          <div className="flex items-center bg-gray-50 p-3 rounded-xl border border-gray-200">
             <input
               type="checkbox"
               id="is_active"
               checked={formData.is_active}
               onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
             />
-            <label htmlFor="is_active" className="ml-2 text-sm font-medium text-gray-700">Active batch</label>
+            <label htmlFor="is_active" className="ml-2 text-sm font-bold text-gray-700">Active batch</label>
           </div>
 
           <div className="flex gap-3 pt-4 border-t border-gray-200">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-3 border border-gray-300 font-semibold text-gray-700 rounded-xl hover:bg-gray-50 transition-colors">
               Cancel
             </button>
-            <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50">
+            <button type="submit" disabled={isSubmitting} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold hover:opacity-90 transition-opacity shadow-sm disabled:opacity-50">
               {isSubmitting ? 'Saving...' : (batch ? 'Update Batch' : 'Create Batch')}
             </button>
           </div>

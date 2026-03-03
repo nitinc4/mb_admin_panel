@@ -11,6 +11,14 @@ interface Notification {
   repeatInterval: string; status: string; type: string; createdAt: string;
 }
 
+const getLocalToday = () => {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, '0');
+  const d = String(today.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 export default function NotificationsPage() {
   const [activeTab, setActiveTab] = useState<'history' | 'create'>('history');
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -20,7 +28,7 @@ export default function NotificationsPage() {
 
   const [form, setForm] = useState({
     title: '', body: '', imageUrl: '', targetType: 'all', targetId: '',
-    scheduledDate: new Date().toISOString().split('T')[0], scheduledTime: '10:00',
+    scheduledDate: getLocalToday(), scheduledTime: '10:00',
     isRepeating: false, repeatInterval: 'none' 
   });
 
@@ -63,7 +71,7 @@ export default function NotificationsPage() {
         alert('Notification Scheduled!');
         setForm({
           title: '', body: '', imageUrl: '', targetType: 'all', targetId: '',
-          scheduledDate: new Date().toISOString().split('T')[0], scheduledTime: '10:00',
+          scheduledDate: getLocalToday(), scheduledTime: '10:00',
           isRepeating: false, repeatInterval: 'none'
         });
         setActiveTab('history');

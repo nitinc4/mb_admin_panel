@@ -6,6 +6,14 @@ import { API_URL } from '../config';
 interface User { id: string; email: string; name: string; }
 interface Appointment { id: string; user: User; title: string; cost: number; scheduledAt: string; status: string; notes: string; isPaid: boolean; paymentAmount: number; }
 
+const getLocalToday = () => {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, '0');
+  const d = String(today.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 export default function AppointmentsPage() {
   const { setActiveTab } = useApp(); 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -13,7 +21,7 @@ export default function AppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
 
-  const [form, setForm] = useState({ user_id: '', title: '', cost: 0, scheduled_at: new Date().toISOString().split('T')[0], scheduled_time: '10:00', notes: '' });
+  const [form, setForm] = useState({ user_id: '', title: '', cost: 0, scheduled_at: getLocalToday(), scheduled_time: '10:00', notes: '' });
 
   const fetchData = async () => {
     try {
@@ -36,7 +44,7 @@ export default function AppointmentsPage() {
       if (result.success) {
         setAppointments([result.data, ...appointments]);
         setShowModal(false);
-        setForm({ user_id: '', title: '', cost: 0, scheduled_at: new Date().toISOString().split('T')[0], scheduled_time: '10:00', notes: '' });
+        setForm({ user_id: '', title: '', cost: 0, scheduled_at: getLocalToday(), scheduled_time: '10:00', notes: '' });
         
         if (result.data.cost > 0) {
           await fetch(`${API_URL}/api/payments`, {
@@ -93,7 +101,6 @@ export default function AppointmentsPage() {
         </button>
       </div>
 
-      {/* FIXED OVERLAPPING: Changed grid to a flex container with overflow-x-auto */}
       <div className="flex flex-nowrap overflow-x-auto gap-6 pb-6 items-start">
         {statuses.map(status => (
           <div key={status} className="flex-shrink-0 w-80 bg-white rounded-xl shadow-sm border border-gray-100 p-4 max-h-[calc(100vh-200px)] overflow-y-auto">

@@ -7,19 +7,26 @@ interface Payment {
   id: string; user: User; amount: number; paymentType: string; reason: string; referenceId: string; dueDate: string; paymentDate?: string; status: 'upcoming' | 'due' | 'paid';
 }
 
+const getLocalToday = () => {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, '0');
+  const d = String(today.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 export default function BillingPage() {
   const [activeTab, setActiveTab] = useState<'upcoming' | 'due' | 'history'>('upcoming');
   const [payments, setPayments] = useState<Payment[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Modal State
   const [showAddModal, setShowAddModal] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [form, setForm] = useState({
-    user_id: '', amount: 0, paymentType: 'upi', reason: '', referenceId: '', dueDate: new Date().toISOString().split('T')[0], status: 'paid' as any
+    user_id: '', amount: 0, paymentType: 'upi', reason: '', referenceId: '', dueDate: getLocalToday(), status: 'paid' as any
   });
 
   const fetchData = async () => {
@@ -39,7 +46,7 @@ export default function BillingPage() {
     if (draft) {
       const parsedDraft = JSON.parse(draft);
       setForm(prev => ({ ...prev, ...parsedDraft }));
-      setShowAddModal(true); // Open modal instead of switching tabs
+      setShowAddModal(true); 
 
       const draftUser = users.find(u => u.id === parsedDraft.user_id);
       if (draftUser) setSearchTerm(`${draftUser.name} - ${draftUser.phone}`);
@@ -102,7 +109,6 @@ export default function BillingPage() {
 
   return (
     <div className="p-8 bg-cream min-h-full">
-      {/* HEADER WITH NEW BUTTON */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-800">Billing & Payments</h1>
@@ -110,7 +116,7 @@ export default function BillingPage() {
         </div>
         <button 
           onClick={() => {
-            setForm({ user_id: '', amount: 0, paymentType: 'upi', reason: '', referenceId: '', dueDate: new Date().toISOString().split('T')[0], status: 'paid' as any });
+            setForm({ user_id: '', amount: 0, paymentType: 'upi', reason: '', referenceId: '', dueDate: getLocalToday(), status: 'paid' as any });
             setSearchTerm('');
             setShowAddModal(true);
           }} 
@@ -121,7 +127,6 @@ export default function BillingPage() {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        {/* TABS (Removed the 'Add' tab) */}
         <div className="flex border-b border-gray-100 overflow-x-auto bg-white">
           {['upcoming', 'due', 'history'].map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-6 py-4 font-bold capitalize transition-colors whitespace-nowrap ${activeTab === tab ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-primary hover:bg-orange-50/30'}`}>
@@ -164,7 +169,6 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* RECORD PAYMENT MODAL */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
