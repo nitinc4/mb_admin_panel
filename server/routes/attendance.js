@@ -2,6 +2,7 @@ import express from 'express';
 import Attendance from '../models/Attendance.js';
 import LiveClass from '../models/LiveClass.js';
 import User from '../models/User.js';
+import Batch from '../models/Batch.js';
 
 const router = express.Router();
 
@@ -20,15 +21,51 @@ router.post('/mark', async (req, res) => {
   }
 });
 
-// Admin: Get overall stats for a batch
+// Admin: Get GLOBAL stats for all batches
+router.get('/stats', async (req, res) => {
+  try {
+    const totalClasses = await LiveClass.countDocuments();
+    const totalPresent = await Attendance.countDocuments({ status: 'present' });
+    
+    // Calculate max possible attendances across all active batches
+    const batches = await Batch.find();
+    let maxPossible = 0;
+    
+    for (const b of batches) {
+      const classCount = await LiveClass.countDocuments({ batch: b._id });
+      // Find users explicitly enrolled OR in allowed tiers
+      const usersCount = await User.countDocuments({
+         $or: [ { enrolledBatches: b._id }, { tier: { $in: b.allowedTiers } } ]
+      });
+      maxPossible += (classCount * usersCount);
+    }
+    
+    const averageAttendance = maxPossible === 0 ? 0 : (totalPresent / maxPossible) * 100;
+    
+    res.json({ 
+      success: true, 
+      data: { totalClasses, totalPresent, averageAttendance: averageAttendance.toFixed(2) } 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Admin: Get overall stats for a specific batch
 router.get('/batch/:batchId/stats', async (req, res) => {
   try {
     const { batchId } = req.params;
     const totalClasses = await LiveClass.countDocuments({ batch: batchId });
     const totalPresent = await Attendance.countDocuments({ batch: batchId, status: 'present' });
     
-    // Find how many users are enrolled
-    const usersInBatch = await User.countDocuments({ enrolledBatches: batchId });
+    const batch = await Batch.findById(batchId);
+    let usersInBatch = 0;
+    if (batch) {
+       // Look up users explicitly enrolled OR in the batch's allowed tiers
+       usersInBatch = await User.countDocuments({
+         $or: [ { enrolledBatches: batchId }, { tier: { $in: batch.allowedTiers } } ]
+       });
+    }
     
     const maxPossibleAttendances = totalClasses * usersInBatch;
     const averageAttendance = maxPossibleAttendances === 0 ? 0 : (totalPresent / maxPossibleAttendances) * 100;
@@ -47,8 +84,14 @@ router.get('/batch/:batchId/class/:classId/records', async (req, res) => {
   try {
     const { batchId, classId } = req.params;
     
-    // 1. Get all enrolled users
-    const users = await User.find({ enrolledBatches: batchId }).select('name email _id');
+    const batch = await Batch.findById(batchId);
+    if (!batch) return res.status(404).json({ success: false, message: 'Batch not found' });
+
+    // 1. Get all enrolled users (explicit + tier-based)
+    const users = await User.find({
+      $or: [ { enrolledBatches: batchId }, { tier: { $in: batch.allowedTiers } } ]
+    }).select('name email _id');
+    
     // 2. Get all attendance records for this class
     const attendances = await Attendance.find({ liveClass: classId });
 
@@ -89,12 +132,19 @@ router.put('/update', async (req, res) => {
 router.get('/user/:userId/stats', async (req, res) => {
   try {
     const { userId } = req.params;
-    const { batchId } = req.query; // Optional filter by batch
+    const { batchId } = req.query;
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    let classesQuery = { batch: { $in: user.enrolledBatches } };
+    // Combine explicitly enrolled batches with tier-based batches
+    let userBatches = [...user.enrolledBatches];
+    if (user.tier) {
+        const tierBatches = await Batch.find({ allowedTiers: user.tier }).select('_id');
+        userBatches = [...userBatches, ...tierBatches.map(b => b._id)];
+    }
+
+    let classesQuery = { batch: { $in: userBatches } };
     let attendanceQuery = { user: userId, status: 'present' };
 
     if (batchId) {
