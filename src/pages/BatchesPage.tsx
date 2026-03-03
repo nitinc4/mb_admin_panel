@@ -9,7 +9,6 @@ interface Batch {
   id: string;
   name: string;
   description: string;
-  attendance?: string;
   assignment?: string;
   announcements?: string;
   tests?: string;
@@ -31,7 +30,8 @@ interface ContentItem {
   isPublished: boolean;
 }
 
-type EditableField = 'attendance' | 'assignment' | 'announcements' | 'tests';
+// REMOVED 'attendance' from editable fields
+type EditableField = 'assignment' | 'announcements' | 'tests';
 
 export default function BatchesPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -47,8 +47,11 @@ export default function BatchesPage() {
   // Content Modals & Details View
   const [viewingBatchId, setViewingBatchId] = useState<string | null>(null);
   const [batchDetails, setBatchDetails] = useState<{ batch: Batch, content: ContentItem[] } | null>(null);
-  const [isLoadingContent, setIsLoadingContent] = useState(false);
   
+  // NEW: State to hold actual DB attendance stats
+  const [batchAttendanceStats, setBatchAttendanceStats] = useState({ totalClasses: 0, averageAttendance: '0.00' });
+
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [isContentModalOpen, setIsContentModalOpen] = useState(false); 
   const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null); 
 
@@ -84,6 +87,7 @@ export default function BatchesPage() {
   const fetchBatchContent = async (batchId: string) => {
     setIsLoadingContent(true);
     try {
+      // Fetch details
       const res = await fetch(`${API_URL}/api/batches/${batchId}`);
       const data = await res.json();
       if (data.success) {
@@ -92,6 +96,14 @@ export default function BatchesPage() {
           content: data.data.content_items || []
         });
       }
+      
+      // NEW: Fetch Attendance Stats for this batch specifically
+      fetch(`${API_URL}/api/attendance/batch/${batchId}/stats`)
+        .then(r => r.json())
+        .then(statsData => {
+           if (statsData.success) setBatchAttendanceStats(statsData.data);
+        });
+
     } catch (error) {
       console.error('Error fetching batch content:', error);
     } finally {
@@ -102,7 +114,7 @@ export default function BatchesPage() {
   useEffect(() => {
     if (viewingBatchId) {
       fetchBatchContent(viewingBatchId);
-      setEditingField(null); // Reset inline edit state when switching batches
+      setEditingField(null); 
     } else {
       setBatchDetails(null);
     }
@@ -131,14 +143,12 @@ export default function BatchesPage() {
     }
   };
 
-  // --- Handle Inline Save for Details View ---
   const handleSaveField = async () => {
     if (!viewingBatchId || !editingField || !batchDetails) return;
     setIsSavingField(true);
     
     const { batch } = batchDetails;
     
-    // We rebuild the entire batch payload to satisfy the PUT endpoint
     const payload = {
       name: batch.name,
       description: batch.description,
@@ -146,7 +156,6 @@ export default function BatchesPage() {
       end_date: batch.end_date,
       is_active: batch.isActive,
       tier_ids: batch.allowed_tiers?.map(t => t.id || t._id) || [],
-      attendance: editingField === 'attendance' ? editValue : batch.attendance,
       assignment: editingField === 'assignment' ? editValue : batch.assignment,
       announcements: editingField === 'announcements' ? editValue : batch.announcements,
       tests: editingField === 'tests' ? editValue : batch.tests,
@@ -169,7 +178,6 @@ export default function BatchesPage() {
     }
   };
 
-  // --- Inline Field Renderer ---
   const renderEditableField = (
     field: EditableField, 
     title: string, 
@@ -280,9 +288,23 @@ export default function BatchesPage() {
              </div>
           </div>
 
-          {/* INLINE EDITABLE FIELDS GRID */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6 text-sm">
-             {renderEditableField('attendance', 'Attendance', 'text-blue-800', 'bg-blue-50', 'border-blue-100', 'text-blue-900')}
+             {/* NEW DYNAMIC ATTENDANCE CARD - NOT EDITABLE */}
+             <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex flex-col justify-between">
+               <span className="font-semibold text-blue-800 block mb-2">Live Class Attendance</span>
+               <div className="flex justify-between items-end mt-2">
+                  <div>
+                    <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider block">Classes</span>
+                    <p className="text-xl text-blue-900 font-bold">{batchAttendanceStats.totalClasses}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider block">Average</span>
+                    <p className="text-xl text-blue-900 font-bold">{batchAttendanceStats.averageAttendance}%</p>
+                  </div>
+               </div>
+             </div>
+
+             {/* EXISTING EDITABLE FIELDS */}
              {renderEditableField('assignment', 'Assignment', 'text-purple-800', 'bg-purple-50', 'border-purple-100', 'text-purple-900')}
              {renderEditableField('announcements', 'Announcements', 'text-orange-800', 'bg-orange-50', 'border-orange-100', 'text-orange-900')}
              {renderEditableField('tests', 'Tests', 'text-green-800', 'bg-green-50', 'border-green-100', 'text-green-900')}
@@ -478,7 +500,6 @@ export default function BatchesPage() {
             setIsBatchModalOpen(false);
             setSelectedBatch(null);
             fetchInitialData();
-            // If editing the currently viewed batch, refresh details too
             if (viewingBatchId === selectedBatch?.id) {
                fetchBatchContent(viewingBatchId);
             }
