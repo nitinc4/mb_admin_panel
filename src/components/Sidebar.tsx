@@ -7,7 +7,8 @@ import {
   DollarSign,
   Settings,
   Bell,
-  MessageSquare
+  MessageSquare,
+  UserCheck // <-- NEW ICON
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -22,11 +23,11 @@ const navItems: NavItem[] = [
   { id: 'users', label: 'Users & Tiers', icon: Users },
   { id: 'batches', label: 'Batches & Content', icon: FolderOpen },
   { id: 'live-classes', label: 'Live Classes', icon: Video },
+  { id: 'attendance', label: 'Attendance', icon: UserCheck }, // <-- NEW ITEM
   { id: 'appointments', label: 'Appointments', icon: Calendar },
   { id: 'billing', label: 'Billing', icon: DollarSign },
   { id: 'messages', label: 'Messages', icon: MessageSquare }, 
   { id: 'notifications', label: 'Notifications', icon: Bell },
-  // CHANGED FROM 'settings' TO 'services'
   { id: 'services', label: 'Services', icon: Settings }, 
 ];
 
@@ -34,7 +35,7 @@ export default function Sidebar() {
   const { activeTab, setActiveTab } = useApp();
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
+    <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-full">
       <div className="p-6 border-b border-gray-200">
         <h1 className="text-xl font-bold text-gray-800">Admin Dashboard</h1>
         <p className="text-sm text-gray-500 mt-1">MantrikaBrahma</p>

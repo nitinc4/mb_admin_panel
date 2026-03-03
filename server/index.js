@@ -18,6 +18,7 @@ import servicesRoutes from './routes/services.js';
 import serviceCategoriesRoutes from './routes/service-categories.js';
 import appointmentsRoutes from './routes/appointments.js';
 import pricingRoutes from './routes/pricing.js';
+import attendanceRoutes from './routes/attendance.js'; // <-- NEW IMPORT
 
 import { startNotificationCron } from './jobs/notification-cron.js';
 import { startPaymentCheckCron } from './jobs/payment-check-cron.js';
@@ -31,22 +32,16 @@ connectDB();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ==========================================
-// MISSING SOCKET.IO INITIALIZATION ADDED HERE
-// ==========================================
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST","PUT", "DELETE"]
-  }
+  cors: { origin: "*", methods: ["GET", "POST","PUT", "DELETE"] }
 });
 
 app.use(cors());
 app.use(express.json());
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Admin Dashboard API is running', database: 'MongoDB Connected' });
+  res.json({ status: 'ok', message: 'Admin Dashboard API is running' });
 });
 
 // Register All Endpoints
@@ -63,44 +58,36 @@ app.use('/api/service-categories', serviceCategoriesRoutes);
 app.use('/api/appointments', appointmentsRoutes);
 app.use('/api/pricing', pricingRoutes);
 app.use('/api/messages', messagesRoutes); 
+app.use('/api/attendance', attendanceRoutes); // <-- NEW ROUTE
 
-// Start Background CRON Jobs (Fixed)
+// Start Background CRON Jobs
 startPaymentCheckCron();
 startNotificationCron();
 
 // --- SOCKET.IO LOGIC ---
 io.on('connection', (socket) => {
   console.log(`User connected to Socket.io: ${socket.id}`);
-
-  // User joins a specific batch group
   socket.on('join_batch', (batchId) => {
     socket.join(batchId);
-    console.log(`Socket ${socket.id} joined batch ${batchId}`);
   });
-
-  // Handle incoming message
   socket.on('send_message', async (data) => {
     try {
-      // 1. Save message to MongoDB
       const newMessage = await Message.create({
         batchId: data.batchId,
         senderName: data.senderName,
         senderRole: data.senderRole || 'admin',
         text: data.text
       });
-
-      // 2. Broadcast the formatted message back to everyone in the room
       io.to(data.batchId).emit('receive_message', newMessage.toJSON());
     } catch (error) {
       console.error('Error saving socket message:', error);
     }
   });
-
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
   });
 });
-// Remove the 'if' statement and use server.listen instead of app.listen
+
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
