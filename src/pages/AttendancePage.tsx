@@ -8,21 +8,27 @@ export default function AttendancePage() {
   const [liveClasses, setLiveClasses] = useState<any[]>([]);
   const [selectedClassId, setSelectedClassId] = useState('');
 
+  // Added global filter state
+  const [globalFilter, setGlobalFilter] = useState('all');
   const [globalStats, setGlobalStats] = useState({ totalClasses: 0, totalPresent: 0, averageAttendance: '0.00' });
+  
   const [batchStats, setBatchStats] = useState({ totalClasses: 0, averageAttendance: '0.00' });
   const [records, setRecords] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Load Batches and Global Stats on mount
+  // Load Batches on mount
   useEffect(() => {
     fetch(`${API_URL}/api/batches`)
       .then(r => r.json())
       .then(data => { if (data.success) setBatches(data.data); });
-      
-    fetch(`${API_URL}/api/attendance/stats`)
+  }, []);
+
+  // Fetch Global Stats with Filter
+  useEffect(() => {
+    fetch(`${API_URL}/api/attendance/stats?filter=${globalFilter}`)
       .then(r => r.json())
       .then(data => { if (data.success) setGlobalStats(data.data); });
-  }, []);
+  }, [globalFilter]);
 
   // Load Batch Stats and Classes when a Batch is selected
   useEffect(() => {
@@ -78,7 +84,8 @@ export default function AttendancePage() {
       fetch(`${API_URL}/api/attendance/batch/${selectedBatchId}/stats`)
         .then(r => r.json())
         .then(data => { if (data.success) setBatchStats(data.data); });
-      fetch(`${API_URL}/api/attendance/stats`)
+        
+      fetch(`${API_URL}/api/attendance/stats?filter=${globalFilter}`)
         .then(r => r.json())
         .then(data => { if (data.success) setGlobalStats(data.data); });
     } catch (e) {
@@ -93,21 +100,35 @@ export default function AttendancePage() {
         <p className="text-gray-600 mt-1">Manage and track student live class attendance</p>
       </div>
 
-      {/* --- TOP SECTION: GLOBAL STATS --- */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 flex flex-col md:flex-row justify-around items-center">
-        <div className="text-center mb-4 md:mb-0">
-          <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">Total Classes Conducted</p>
-          <p className="text-4xl font-bold text-primary mt-1">{globalStats.totalClasses}</p>
+      {/* --- TOP SECTION: GLOBAL STATS WITH FILTER --- */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 relative">
+        <div className="absolute top-4 right-4 z-10">
+          <select 
+            value={globalFilter} 
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            className="p-1.5 text-sm font-medium border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none text-gray-700 bg-gray-50 hover:bg-white transition-colors cursor-pointer"
+          >
+            <option value="all">All Time</option>
+            <option value="monthly">Past 30 Days</option>
+            <option value="weekly">Past 7 Days</option>
+          </select>
         </div>
-        <div className="hidden md:block w-px h-16 bg-gray-200"></div>
-        <div className="text-center mb-4 md:mb-0">
-          <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">Total Attendances</p>
-          <p className="text-4xl font-bold text-green-600 mt-1">{globalStats.totalPresent}</p>
-        </div>
-        <div className="hidden md:block w-px h-16 bg-gray-200"></div>
-        <div className="text-center">
-          <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">Global Average Attendance</p>
-          <p className="text-4xl font-bold text-orange-500 mt-1">{globalStats.averageAttendance}%</p>
+
+        <div className="flex flex-col md:flex-row justify-around items-center pt-8 md:pt-4">
+          <div className="text-center mb-4 md:mb-0">
+            <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">Total Classes Conducted</p>
+            <p className="text-4xl font-bold text-primary mt-1">{globalStats.totalClasses}</p>
+          </div>
+          <div className="hidden md:block w-px h-16 bg-gray-200"></div>
+          <div className="text-center mb-4 md:mb-0">
+            <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">Total Attendances</p>
+            <p className="text-4xl font-bold text-green-600 mt-1">{globalStats.totalPresent}</p>
+          </div>
+          <div className="hidden md:block w-px h-16 bg-gray-200"></div>
+          <div className="text-center">
+            <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">Average Attendance</p>
+            <p className="text-4xl font-bold text-orange-500 mt-1">{globalStats.averageAttendance}%</p>
+          </div>
         </div>
       </div>
 

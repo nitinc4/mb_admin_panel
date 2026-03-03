@@ -21,23 +21,43 @@ router.post('/mark', async (req, res) => {
   }
 });
 
-// Admin: Get GLOBAL stats for all batches
+// Admin: Get GLOBAL stats for all batches with Time Filter
 router.get('/stats', async (req, res) => {
   try {
-    const totalClasses = await LiveClass.countDocuments();
-    const totalPresent = await Attendance.countDocuments({ status: 'present' });
+    const { filter } = req.query; // 'weekly', 'monthly', or 'all'
     
-    // Calculate max possible attendances across all active batches
+    let dateFilterClass = {};
+    let dateFilterAttendance = {};
+
+    if (filter === 'weekly') {
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      // Fallback to createdAt if scheduledAt is missing
+      dateFilterClass = { $or: [{ scheduledAt: { $gte: oneWeekAgo } }, { createdAt: { $gte: oneWeekAgo } }] };
+      dateFilterAttendance = { joinedAt: { $gte: oneWeekAgo } };
+    } else if (filter === 'monthly') {
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
+      dateFilterClass = { $or: [{ scheduledAt: { $gte: oneMonthAgo } }, { createdAt: { $gte: oneMonthAgo } }] };
+      dateFilterAttendance = { joinedAt: { $gte: oneMonthAgo } };
+    }
+
+    const totalClasses = await LiveClass.countDocuments(dateFilterClass);
+    const totalPresent = await Attendance.countDocuments({ status: 'present', ...dateFilterAttendance });
+    
+    // Calculate max possible attendances across all active batches within this timeframe
     const batches = await Batch.find();
     let maxPossible = 0;
     
     for (const b of batches) {
-      const classCount = await LiveClass.countDocuments({ batch: b._id });
-      // Find users explicitly enrolled OR in allowed tiers
-      const usersCount = await User.countDocuments({
-         $or: [ { enrolledBatches: b._id }, { tier: { $in: b.allowedTiers } } ]
-      });
-      maxPossible += (classCount * usersCount);
+      // Only count classes for this batch that fall into the date range
+      const classCount = await LiveClass.countDocuments({ batch: b._id, ...dateFilterClass });
+      if (classCount > 0) {
+        const usersCount = await User.countDocuments({
+           $or: [ { enrolledBatches: b._id }, { tier: { $in: b.allowedTiers } } ]
+        });
+        maxPossible += (classCount * usersCount);
+      }
     }
     
     const averageAttendance = maxPossible === 0 ? 0 : (totalPresent / maxPossible) * 100;
@@ -61,7 +81,6 @@ router.get('/batch/:batchId/stats', async (req, res) => {
     const batch = await Batch.findById(batchId);
     let usersInBatch = 0;
     if (batch) {
-       // Look up users explicitly enrolled OR in the batch's allowed tiers
        usersInBatch = await User.countDocuments({
          $or: [ { enrolledBatches: batchId }, { tier: { $in: batch.allowedTiers } } ]
        });
@@ -87,15 +106,12 @@ router.get('/batch/:batchId/class/:classId/records', async (req, res) => {
     const batch = await Batch.findById(batchId);
     if (!batch) return res.status(404).json({ success: false, message: 'Batch not found' });
 
-    // 1. Get all enrolled users (explicit + tier-based)
     const users = await User.find({
       $or: [ { enrolledBatches: batchId }, { tier: { $in: batch.allowedTiers } } ]
     }).select('name email _id');
     
-    // 2. Get all attendance records for this class
     const attendances = await Attendance.find({ liveClass: classId });
 
-    // 3. Map users to their status
     const records = users.map(user => {
       const record = attendances.find(a => a.user.toString() === user._id.toString());
       return {
@@ -137,7 +153,6 @@ router.get('/user/:userId/stats', async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    // Combine explicitly enrolled batches with tier-based batches
     let userBatches = [...user.enrolledBatches];
     if (user.tier) {
         const tierBatches = await Batch.find({ allowedTiers: user.tier }).select('_id');
