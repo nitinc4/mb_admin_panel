@@ -1,52 +1,115 @@
 import express from 'express';
 import Appointment from '../models/Appointment.js';
+import AppointmentConfig from '../models/AppointmentConfig.js';
+import User from '../models/User.js';
 
 const router = express.Router();
 
-router.get('/', async (req, res) => {
+// 1 Hour Slots: 11 AM to 4 PM (Starts at 11, 12, 1, 2, 3)
+const generateSlots = (dayIndex) => {
+  // 0: Sunday, 4: Thursday -> Closed
+  if (dayIndex === 0 || dayIndex === 4) return [];
+  return ["11:00 AM - 12:00 PM", "12:00 PM - 01:00 PM", "01:00 PM - 02:00 PM", "02:00 PM - 03:00 PM", "03:00 PM - 04:00 PM"];
+};
+
+// Admin & App: Get standard price
+router.get('/config', async (req, res) => {
   try {
-    const data = await Appointment.find()
-      .populate('user', 'name email phone')
-      .sort({ scheduledAt: -1 });
-    res.json({ success: true, data });
-  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+    let config = await AppointmentConfig.findOne({ key: 'standard_price' });
+    if (!config) config = await AppointmentConfig.create({ key: 'standard_price', price: 500 }); // Default 500
+    res.json({ success: true, data: config });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
-router.post('/', async (req, res) => {
+// Admin: Update standard price
+router.post('/config', async (req, res) => {
   try {
-    const { user_id, title, cost, scheduled_at, notes } = req.body;
-    
-    let data = await Appointment.create({
-      user: user_id,
-      title: title || 'General Appointment',
-      cost: cost || 0,
-      paymentAmount: cost || 0,
-      scheduledAt: scheduled_at,
-      notes: notes || '',
-      status: 'pending'
+    const { price } = req.body;
+    const config = await AppointmentConfig.findOneAndUpdate(
+      { key: 'standard_price' },
+      { price: Number(price) },
+      { upsert: true, new: true }
+    );
+    res.json({ success: true, data: config });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// App: Get available slots for a date (syncs confirmed slots)
+router.get('/available-slots', async (req, res) => {
+  try {
+    const { date } = req.query; 
+    if (!date) return res.status(400).json({ success: false, message: 'Date is required' });
+
+    const queryDate = new Date(date);
+    const dayIndex = queryDate.getDay();
+    const standardSlots = generateSlots(dayIndex);
+
+    if (standardSlots.length === 0) return res.json({ success: true, data: [] });
+
+    const startOfDay = new Date(queryDate.setHours(0,0,0,0));
+    const endOfDay = new Date(queryDate.setHours(23,59,59,999));
+
+    // Find slots already booked on this date
+    const bookedAppointments = await Appointment.find({
+      date: { $gte: startOfDay, $lte: endOfDay },
+      status: { $in: ['confirmed', 'pending'] }
     });
 
-    data = await data.populate('user', 'name email phone');
-    res.status(201).json({ success: true, data });
-  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+    const bookedSlots = bookedAppointments.map(app => app.timeSlot);
+    const availableSlots = standardSlots.filter(slot => !bookedSlots.includes(slot));
+
+    res.json({ success: true, data: availableSlots });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
-router.put('/:id', async (req, res) => {
+// App: Book and process appointment securely
+router.post('/book', async (req, res) => {
   try {
-    const data = await Appointment.findByIdAndUpdate(
-      req.params.id, req.body, { returnDocument: 'after' }
-    ).populate('user', 'name email phone');
+    const { userId, date, timeSlot, amount, txnId } = req.body;
+    const appointmentDate = new Date(date);
+    
+    const startOfDay = new Date(appointmentDate); startOfDay.setHours(0,0,0,0);
+    const endOfDay = new Date(appointmentDate); endOfDay.setHours(23,59,59,999);
 
-    if (!data) return res.status(404).json({ success: false, error: 'Appointment not found' });
-    res.json({ success: true, data });
-  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+    // Double check if slot got booked while user was on payment screen
+    const existing = await Appointment.findOne({
+      date: { $gte: startOfDay, $lte: endOfDay },
+      timeSlot,
+      status: { $in: ['confirmed', 'pending'] }
+    });
+
+    if (existing) return res.status(400).json({ success: false, message: 'Slot was just booked by someone else. Please try another slot.' });
+
+    const newAppointment = await Appointment.create({
+      user: userId,
+      date: appointmentDate,
+      timeSlot,
+      amount,
+      txnId: txnId || `TXN_${Date.now()}`,
+      paymentStatus: 'paid',
+      status: 'confirmed'
+    });
+
+    res.json({ success: true, data: newAppointment });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
-router.delete('/:id', async (req, res) => {
+// Admin: Get all appointments
+router.get('/', async (req, res) => {
   try {
-    await Appointment.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: 'Deleted' });
-  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+    const appointments = await Appointment.find().populate('user', 'name email').sort({ date: -1 });
+    res.json({ success: true, data: appointments });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 export default router;

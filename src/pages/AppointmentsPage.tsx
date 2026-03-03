@@ -4,7 +4,25 @@ import { useApp } from '../context/AppContext';
 import { API_URL } from '../config';
 
 interface User { id: string; email: string; name: string; }
-interface Appointment { id: string; user: User; title: string; cost: number; scheduledAt: string; status: string; notes: string; isPaid: boolean; paymentAmount: number; }
+interface Appointment { 
+  id: string; 
+  _id?: string;
+  user: User; 
+  title?: string; 
+  cost?: number; 
+  scheduledAt?: string; 
+  status: string; 
+  notes?: string; 
+  isPaid?: boolean; 
+  paymentAmount?: number;
+  
+  // New fields from Flutter App Bookings
+  date?: string;
+  timeSlot?: string;
+  amount?: number;
+  paymentStatus?: string;
+  txnId?: string;
+}
 
 const getLocalToday = () => {
   const today = new Date();
@@ -21,18 +39,54 @@ export default function AppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
 
+  // NEW: Standard Price Config State
+  const [price, setPrice] = useState('500');
+  const [isSavingPrice, setIsSavingPrice] = useState(false);
+
   const [form, setForm] = useState({ user_id: '', title: '', cost: 0, scheduled_at: getLocalToday(), scheduled_time: '10:00', notes: '' });
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [apptsRes, usrRes] = await Promise.all([fetch(`${API_URL}/api/appointments`), fetch(`${API_URL}/api/users`)]);
-      const appts = await apptsRes.json(); const usr = await usrRes.json();
-      if (appts.success) setAppointments(appts.data); if (usr.success) setUsers(usr.data);
-    } catch (error) { console.error('Error:', error); } finally { setLoading(false); }
+      const [apptsRes, usrRes, configRes] = await Promise.all([
+        fetch(`${API_URL}/api/appointments`), 
+        fetch(`${API_URL}/api/users`),
+        fetch(`${API_URL}/api/appointments/config`) // Fetch config
+      ]);
+      
+      const appts = await apptsRes.json(); 
+      const usr = await usrRes.json();
+      const config = await configRes.json();
+
+      if (appts.success) setAppointments(appts.data); 
+      if (usr.success) setUsers(usr.data);
+      if (config.success && config.data) setPrice(config.data.price.toString());
+
+    } catch (error) { 
+      console.error('Error:', error); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  // NEW: Update Price Config
+  const handleUpdatePrice = async () => {
+    setIsSavingPrice(true);
+    try {
+      await fetch(`${API_URL}/api/appointments/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ price })
+      });
+      alert('Standard price updated successfully! (Synced with mobile app)');
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSavingPrice(false);
+    }
+  };
 
   const handleCreateAppointment = async () => {
     if (!form.user_id || !form.title) return alert('User and Title are required');
@@ -62,13 +116,13 @@ export default function AppointmentsPage() {
     try {
       const response = await fetch(`${API_URL}/api/appointments/${appointmentId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) });
       const result = await response.json();
-      if (result.success) setAppointments(appointments.map(a => a.id === appointmentId ? result.data : a));
+      if (result.success) setAppointments(appointments.map(a => (a.id || a._id) === appointmentId ? result.data : a));
     } catch (error) { console.error(error); }
   };
 
   const handleRouteToPayment = (appointment: Appointment) => {
     const draftData = {
-      user_id: appointment.user.id, amount: appointment.paymentAmount, reason: `Appointment - ${appointment.title}`, dueDate: appointment.scheduledAt.split('T')[0], status: 'paid'
+      user_id: appointment.user.id, amount: appointment.paymentAmount || appointment.amount || 0, reason: `Appointment - ${appointment.title || 'Booking'}`, dueDate: (appointment.scheduledAt || appointment.date || '').split('T')[0], status: 'paid'
     };
     localStorage.setItem('draftPayment', JSON.stringify(draftData));
     setActiveTab('billing'); 
@@ -78,7 +132,7 @@ export default function AppointmentsPage() {
     if (!window.confirm('Delete this appointment?')) return;
     try {
       await fetch(`${API_URL}/api/appointments/${appointmentId}`, { method: 'DELETE' });
-      setAppointments(appointments.filter(a => a.id !== appointmentId));
+      setAppointments(appointments.filter(a => (a.id || a._id) !== appointmentId));
     } catch (error) { console.error(error); }
   };
 
@@ -101,6 +155,31 @@ export default function AppointmentsPage() {
         </button>
       </div>
 
+      {/* --- NEW: PRICING CONFIG BOX --- */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 max-w-xl">
+        <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-4">
+          <DollarSign className="w-5 h-5 text-orange-500" /> Standard App Appointment Price
+        </h2>
+        <div className="flex gap-4 items-end">
+          <div className="flex-1">
+            <label className="block text-sm font-bold text-gray-700 mb-1">Price (₹)</label>
+            <input 
+              type="number" 
+              value={price} 
+              onChange={e => setPrice(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+            />
+          </div>
+          <button 
+            onClick={handleUpdatePrice} disabled={isSavingPrice}
+            className="px-6 py-2 bg-primary text-white font-bold rounded-lg hover:bg-orange-600 transition-colors"
+          >
+            {isSavingPrice ? 'Saving...' : 'Update Config'}
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 mt-2">This is the amount users will be charged in the mobile app.</p>
+      </div>
+
       <div className="flex flex-nowrap overflow-x-auto gap-6 pb-6 items-start">
         {statuses.map(status => {
           const colAppointments = appointments.filter(a => a.status === status);
@@ -108,7 +187,7 @@ export default function AppointmentsPage() {
           return (
             <div key={status} className="flex-shrink-0 w-80 bg-gray-50/50 rounded-xl shadow-sm border border-gray-200 flex flex-col max-h-[calc(100vh-180px)]">
               
-              {/* SOLID HEADER STRIP - Keeps title fixed, prevents overlapping text */}
+              {/* SOLID HEADER STRIP */}
               <div className="px-5 py-4 bg-white border-b border-gray-200 rounded-t-xl flex items-center justify-between z-10 shadow-sm">
                 <h3 className="font-bold text-gray-800 uppercase tracking-wider text-sm">
                   {status.replace('_', ' ')}
@@ -120,41 +199,55 @@ export default function AppointmentsPage() {
 
               {/* SCROLLABLE CONTENT AREA */}
               <div className="p-4 overflow-y-auto flex-1 space-y-3">
-                {colAppointments.map(appointment => (
-                  <div key={appointment.id} className="p-4 rounded-lg border border-gray-100 border-l-4 border-l-primary bg-white shadow-sm hover:shadow-md transition-all">
-                    <div className="mb-3">
-                      <p className="font-bold text-gray-800 text-sm">{appointment.title}</p>
-                      <p className="text-xs text-gray-500">{appointment.user?.name || 'Unknown User'}</p>
-                    </div>
+                {colAppointments.map(appointment => {
+                  const safeId = appointment.id || appointment._id || Math.random().toString();
+                  const displayTitle = appointment.title || 'App Booking';
+                  const displayDate = appointment.scheduledAt ? formatDate(appointment.scheduledAt) : (appointment.date ? formatDate(appointment.date) : 'N/A');
+                  const displayTime = appointment.scheduledAt ? formatTime(appointment.scheduledAt) : (appointment.timeSlot || 'N/A');
+                  const displayAmount = appointment.paymentAmount ?? appointment.amount ?? appointment.cost ?? 0;
+                  const displayIsPaid = appointment.isPaid ?? (appointment.paymentStatus === 'paid');
 
-                    <div className="space-y-1.5 mb-4 text-xs text-gray-600 font-medium">
-                      <div className="flex items-center gap-2"><Calendar size={14} className="text-primary"/><span>{formatDate(appointment.scheduledAt)}</span></div>
-                      <div className="flex items-center gap-2"><Clock size={14} className="text-primary"/><span>{formatTime(appointment.scheduledAt)}</span></div>
-                      <div className="flex items-center gap-2">
-                        <DollarSign size={14} className="text-primary"/>
-                        <span>₹{appointment.paymentAmount} {appointment.isPaid ? <span className="text-green-600 font-bold ml-1">(Paid)</span> : <span className="text-red-500 font-bold ml-1">(Unpaid)</span>}</span>
+                  return (
+                    <div key={safeId} className="p-4 rounded-lg border border-gray-100 border-l-4 border-l-primary bg-white shadow-sm hover:shadow-md transition-all">
+                      <div className="mb-3">
+                        <p className="font-bold text-gray-800 text-sm">{displayTitle}</p>
+                        <p className="text-xs text-gray-500">{appointment.user?.name || 'Unknown User'}</p>
+                      </div>
+
+                      <div className="space-y-1.5 mb-4 text-xs text-gray-600 font-medium">
+                        <div className="flex items-center gap-2"><Calendar size={14} className="text-primary"/><span>{displayDate}</span></div>
+                        <div className="flex items-center gap-2"><Clock size={14} className="text-primary"/><span>{displayTime}</span></div>
+                        <div className="flex items-center gap-2">
+                          <DollarSign size={14} className="text-primary"/>
+                          <span>₹{displayAmount} {displayIsPaid ? <span className="text-green-600 font-bold ml-1">(Paid)</span> : <span className="text-red-500 font-bold ml-1">(Unpaid)</span>}</span>
+                        </div>
+                        {appointment.txnId && (
+                          <div className="flex items-center gap-2 mt-1">
+                             <span className="text-gray-400 font-mono text-[10px]">TXN: {appointment.txnId}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {appointment.notes && <p className="text-xs text-gray-600 mb-4 p-2 bg-orange-50/50 rounded border border-orange-100 italic">"{appointment.notes}"</p>}
+
+                      <div className="flex flex-col gap-2">
+                        {!displayIsPaid && displayAmount > 0 && (
+                          <button onClick={() => handleRouteToPayment(appointment)} className="w-full px-2 py-2 text-xs bg-orange-50 text-primary font-bold border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors flex items-center justify-center gap-1">
+                            <ExternalLink size={12} /> Collect Payment
+                          </button>
+                        )}
+
+                        <select value={status} onChange={e => handleStatusChange(safeId, e.target.value)} className="w-full px-2 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg focus:ring-primary focus:border-primary cursor-pointer outline-none">
+                          {statuses.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}</option>)}
+                        </select>
+
+                        <button onClick={() => handleDeleteAppointment(safeId)} className="w-full px-2 py-1.5 text-xs font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                          Delete
+                        </button>
                       </div>
                     </div>
-
-                    {appointment.notes && <p className="text-xs text-gray-600 mb-4 p-2 bg-orange-50/50 rounded border border-orange-100 italic">"{appointment.notes}"</p>}
-
-                    <div className="flex flex-col gap-2">
-                      {!appointment.isPaid && appointment.paymentAmount > 0 && (
-                        <button onClick={() => handleRouteToPayment(appointment)} className="w-full px-2 py-2 text-xs bg-orange-50 text-primary font-bold border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors flex items-center justify-center gap-1">
-                          <ExternalLink size={12} /> Collect Payment
-                        </button>
-                      )}
-
-                      <select value={status} onChange={e => handleStatusChange(appointment.id, e.target.value)} className="w-full px-2 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg focus:ring-primary focus:border-primary cursor-pointer outline-none">
-                        {statuses.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}</option>)}
-                      </select>
-
-                      <button onClick={() => handleDeleteAppointment(appointment.id)} className="w-full px-2 py-1.5 text-xs font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {colAppointments.length === 0 && (
                   <div className="text-center text-gray-400 text-sm font-medium py-8">
                     No appointments
