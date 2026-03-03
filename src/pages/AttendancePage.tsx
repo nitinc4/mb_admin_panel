@@ -8,7 +8,6 @@ export default function AttendancePage() {
   const [liveClasses, setLiveClasses] = useState<any[]>([]);
   const [selectedClassId, setSelectedClassId] = useState('');
 
-  // Added global filter state
   const [globalFilter, setGlobalFilter] = useState('all');
   const [globalStats, setGlobalStats] = useState({ totalClasses: 0, totalPresent: 0, averageAttendance: '0.00' });
   
@@ -101,8 +100,10 @@ export default function AttendancePage() {
       </div>
 
       {/* --- TOP SECTION: GLOBAL STATS WITH FILTER --- */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 relative">
-        <div className="absolute top-4 right-4 z-10">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+        {/* Header Row for Stats Card */}
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-lg font-bold text-gray-800">Global Overview</h2>
           <select 
             value={globalFilter} 
             onChange={(e) => setGlobalFilter(e.target.value)}
@@ -114,13 +115,14 @@ export default function AttendancePage() {
           </select>
         </div>
 
-        <div className="flex flex-col md:flex-row justify-around items-center pt-8 md:pt-4">
-          <div className="text-center mb-4 md:mb-0">
+        {/* Stats Row */}
+        <div className="flex flex-col md:flex-row justify-around items-center">
+          <div className="text-center mb-6 md:mb-0">
             <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">Total Classes Conducted</p>
             <p className="text-4xl font-bold text-primary mt-1">{globalStats.totalClasses}</p>
           </div>
           <div className="hidden md:block w-px h-16 bg-gray-200"></div>
-          <div className="text-center mb-4 md:mb-0">
+          <div className="text-center mb-6 md:mb-0">
             <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">Total Attendances</p>
             <p className="text-4xl font-bold text-green-600 mt-1">{globalStats.totalPresent}</p>
           </div>
