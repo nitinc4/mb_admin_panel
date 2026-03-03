@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, X, DollarSign } from 'lucide-react';
+import { Plus, X, DollarSign, Trash2 } from 'lucide-react';
 import { useApp } from '../context/AppContext'; 
 import { API_URL } from '../config';
 
@@ -37,7 +37,14 @@ export default function AppointmentsPage() {
   const [price, setPrice] = useState('500');
   const [isSavingPrice, setIsSavingPrice] = useState(false);
 
-  const [form, setForm] = useState({ user_id: '', title: '', cost: 0, scheduled_at: getLocalToday(), scheduled_time: '10:00', notes: '' });
+  // Form uses standard slots now, no custom time input, no cost input
+  const [form, setForm] = useState({ 
+    user_id: '', 
+    title: '', 
+    date: getLocalToday(), 
+    timeSlot: '11:00 AM - 12:00 PM', 
+    notes: '' 
+  });
 
   const fetchData = async () => {
     try {
@@ -68,14 +75,20 @@ export default function AppointmentsPage() {
   const handleUpdatePrice = async () => {
     setIsSavingPrice(true);
     try {
-      await fetch(`${API_URL}/api/appointments/config`, {
+      const response = await fetch(`${API_URL}/api/appointments/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ price })
+        body: JSON.stringify({ price: Number(price) })
       });
-      alert('Standard price updated successfully!');
+      const result = await response.json();
+      if (result.success) {
+         alert('Standard price updated successfully!');
+      } else {
+         alert('Failed to update price');
+      }
     } catch (e) {
       console.error(e);
+      alert('Error updating price configuration');
     } finally {
       setIsSavingPrice(false);
     }
@@ -84,30 +97,17 @@ export default function AppointmentsPage() {
   const handleCreateAppointment = async () => {
     if (!form.user_id || !form.title) return alert('User and Title are required');
     try {
-      const scheduled_at = new Date(`${form.scheduled_at}T${form.scheduled_time}`).toISOString();
-      const response = await fetch(`${API_URL}/api/appointments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, scheduled_at }) });
+      const response = await fetch(`${API_URL}/api/appointments`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify(form) 
+      });
       const result = await response.json();
       
       if (result.success) {
         setAppointments([result.data, ...appointments]);
         setShowModal(false);
-        setForm({ user_id: '', title: '', cost: 0, scheduled_at: getLocalToday(), scheduled_time: '10:00', notes: '' });
-        
-        // Fix for 500 error: Make sure we send 'user' alongside 'user_id' for schema match
-        if (result.data.cost > 0) {
-          await fetch(`${API_URL}/api/payments`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              user: form.user_id, // Sent explicit user object ID reference
-              user_id: form.user_id, 
-              amount: result.data.cost, 
-              reason: `Appointment - ${result.data.title}`, 
-              dueDate: scheduled_at, 
-              status: 'upcoming', 
-              appointment_id: result.data.id
-            })
-          });
-        }
+        setForm({ user_id: '', title: '', date: getLocalToday(), timeSlot: '11:00 AM - 12:00 PM', notes: '' });
       }
     } catch (error) { console.error(error); }
   };
@@ -117,6 +117,14 @@ export default function AppointmentsPage() {
       const response = await fetch(`${API_URL}/api/appointments/${appointmentId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) });
       const result = await response.json();
       if (result.success) setAppointments(appointments.map(a => (a.id || a._id) === appointmentId ? result.data : a));
+    } catch (error) { console.error(error); }
+  };
+
+  const handleDeleteAppointment = async (appointmentId: string) => {
+    if (!window.confirm('Are you sure you want to delete this appointment?')) return;
+    try {
+      await fetch(`${API_URL}/api/appointments/${appointmentId}`, { method: 'DELETE' });
+      setAppointments(appointments.filter(a => (a.id || a._id) !== appointmentId));
     } catch (error) { console.error(error); }
   };
 
@@ -154,10 +162,10 @@ export default function AppointmentsPage() {
             onClick={handleUpdatePrice} disabled={isSavingPrice}
             className="px-6 py-2 bg-primary text-white font-bold rounded-lg hover:bg-orange-600 transition-colors"
           >
-            {isSavingPrice ? 'Saving...' : 'Update'}
+            {isSavingPrice ? 'Saving...' : 'Update Config'}
           </button>
         </div>
-        <p className="text-xs text-gray-500 mt-2">This is the amount users will be charged in the mobile app.</p>
+        <p className="text-xs text-gray-500 mt-2">This is the amount users will be charged in the mobile app. All new admin bookings will also log a pending invoice for this amount.</p>
       </div>
 
       <div className="space-y-8 pb-10">
@@ -180,17 +188,22 @@ export default function AppointmentsPage() {
                          <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Email</th>
                          <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Phone Number</th>
                          <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-center">From Mantrika Brahma App</th>
-                         <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-right">Set Status</th>
+                         <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-right">Actions</th>
                       </tr>
                    </thead>
                    <tbody className="divide-y divide-gray-100">
                       {colAppointments.map(app => {
                         const safeId = app.id || app._id || Math.random().toString();
                         
-                        // Parse date safely
+                        // Strict Date extraction to prevent +5:30 Timezone offset issues
                         let displayDate = 'N/A';
-                        if (app.scheduledAt) displayDate = new Date(app.scheduledAt).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
-                        else if (app.date && app.timeSlot) displayDate = `${new Date(app.date).toLocaleDateString('en-IN')} at ${app.timeSlot}`;
+                        if (app.date && app.timeSlot) {
+                           const d = new Date(app.date);
+                           displayDate = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth()+1).toString().padStart(2, '0')}/${d.getFullYear()} at ${app.timeSlot}`;
+                        } else if (app.scheduledAt) {
+                           const d = new Date(app.scheduledAt);
+                           displayDate = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth()+1).toString().padStart(2, '0')}/${d.getFullYear()} at ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+                        }
 
                         const isAppBooking = !!app.txnId || !!app.timeSlot;
 
@@ -207,7 +220,7 @@ export default function AppointmentsPage() {
                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600">No</span>
                                 )}
                              </td>
-                             <td className="px-6 py-4 text-right">
+                             <td className="px-6 py-4 text-right flex items-center justify-end gap-3">
                                 <select 
                                    value={app.status}
                                    onChange={(e) => handleStatusChange(safeId, e.target.value)}
@@ -215,6 +228,13 @@ export default function AppointmentsPage() {
                                 >
                                    {statuses.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}</option>)}
                                 </select>
+                                <button 
+                                  onClick={() => handleDeleteAppointment(safeId)}
+                                  className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                  title="Delete Appointment"
+                                >
+                                  <Trash2 className="w-5 h-5" />
+                                </button>
                              </td>
                           </tr>
                         );
@@ -247,18 +267,20 @@ export default function AppointmentsPage() {
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Appointment Title *</label>
                 <input type="text" placeholder="e.g. Health Consultation" value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all" required />
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Appointment Cost (₹) *</label>
-                <input type="number" placeholder="0 if free" value={form.cost} onChange={e => setForm({...form, cost: parseFloat(e.target.value)})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all" required />
-              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Date *</label>
-                  <input type="date" value={form.scheduled_at} onChange={e => setForm({...form, scheduled_at: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all" />
+                  <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all" />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Time *</label>
-                  <input type="time" value={form.scheduled_time} onChange={e => setForm({...form, scheduled_time: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all" />
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Time Slot *</label>
+                  <select value={form.timeSlot} onChange={e => setForm({...form, timeSlot: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all">
+                    <option value="11:00 AM - 12:00 PM">11:00 AM - 12:00 PM</option>
+                    <option value="12:00 PM - 01:00 PM">12:00 PM - 01:00 PM</option>
+                    <option value="01:00 PM - 02:00 PM">01:00 PM - 02:00 PM</option>
+                    <option value="02:00 PM - 03:00 PM">02:00 PM - 03:00 PM</option>
+                    <option value="03:00 PM - 04:00 PM">03:00 PM - 04:00 PM</option>
+                  </select>
                 </div>
               </div>
               <div>

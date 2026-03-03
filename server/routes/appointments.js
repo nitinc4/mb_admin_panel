@@ -86,7 +86,7 @@ router.post('/book', async (req, res) => {
 
     const newAppointment = await Appointment.create({
       user: userId,
-      title: 'App Consultation Booking',
+      title: 'Appointment - From app',
       date: appointmentDate,
       timeSlot,
       scheduledAt,
@@ -96,14 +96,15 @@ router.post('/book', async (req, res) => {
       paymentAmount: amount,
       txnId: txnId || `TXN_${Date.now()}`,
       paymentStatus: 'paid',
-      status: 'pending' // <-- CHANGED TO PENDING AS REQUESTED
+      status: 'pending'
     });
 
+    // Logging Payment - Ensuring user ID is forcefully cast to match schema
     await Payment.create({
-      user: userId,
+      user: userId, 
       amount: amount,
       paymentType: 'online',
-      reason: `App Booking - ${timeSlot}`,
+      reason: `Appointment - From App - ${timeSlot}`,
       dueDate: scheduledAt,
       paymentDate: new Date(),
       status: 'paid',
@@ -117,7 +118,6 @@ router.post('/book', async (req, res) => {
 // Admin: GET ALL
 router.get('/', async (req, res) => {
   try {
-    // Populate phone number for the new UI format
     const appointments = await Appointment.find().populate('user', 'name email phone').sort({ scheduledAt: -1, date: -1 });
     res.json({ success: true, data: appointments });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
@@ -126,15 +126,49 @@ router.get('/', async (req, res) => {
 // Admin: POST Manual Appointment
 router.post('/', async (req, res) => {
   try {
-    const { user_id, title, cost, scheduled_at, notes } = req.body;
+    const { user_id, title, date, timeSlot, notes } = req.body;
+    
+    // Get default price
+    let config = await AppointmentConfig.findOne({ key: 'standard_price' });
+    const cost = config ? config.price : 500;
+
+    const appointmentDate = new Date(date);
+    let scheduledAt = new Date(appointmentDate);
+
+    if (timeSlot) {
+        const timePart = timeSlot.split(' - ')[0]; 
+        const [time, modifier] = timePart.split(' ');
+        let [hours, minutes] = time.split(':');
+        hours = parseInt(hours, 10);
+        if (modifier === 'PM' && hours < 12) hours += 12;
+        if (modifier === 'AM' && hours === 12) hours = 0;
+        scheduledAt.setHours(hours, parseInt(minutes, 10), 0, 0);
+    }
+
     const appointment = await Appointment.create({
       user: user_id,
       title,
+      date: appointmentDate,
+      timeSlot,
+      scheduledAt,
       cost,
-      scheduledAt: new Date(scheduled_at),
+      amount: cost,
+      isPaid: false,
+      paymentAmount: cost,
       notes,
       status: 'pending'
     });
+
+    // Log unpaid payment automatically
+    await Payment.create({
+      user: user_id,
+      amount: cost,
+      paymentType: 'online',
+      reason: `Appointment - From Admin - ${timeSlot}`,
+      dueDate: scheduledAt,
+      status: 'pending'
+    });
+
     const populated = await Appointment.findById(appointment._id).populate('user', 'name email phone');
     res.json({ success: true, data: populated });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
