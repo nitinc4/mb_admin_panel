@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Plus, X, Calendar, Clock, DollarSign, ExternalLink } from 'lucide-react';
+import { Plus, X, DollarSign } from 'lucide-react';
 import { useApp } from '../context/AppContext'; 
 import { API_URL } from '../config';
 
-interface User { id: string; email: string; name: string; }
+interface User { id: string; email: string; name: string; phone?: string; }
 interface Appointment { 
   id: string; 
   _id?: string;
@@ -13,14 +13,9 @@ interface Appointment {
   scheduledAt?: string; 
   status: string; 
   notes?: string; 
-  isPaid?: boolean; 
-  paymentAmount?: number;
   
-  // New fields from Flutter App Bookings
   date?: string;
   timeSlot?: string;
-  amount?: number;
-  paymentStatus?: string;
   txnId?: string;
 }
 
@@ -39,7 +34,6 @@ export default function AppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
 
-  // NEW: Standard Price Config State
   const [price, setPrice] = useState('500');
   const [isSavingPrice, setIsSavingPrice] = useState(false);
 
@@ -51,7 +45,7 @@ export default function AppointmentsPage() {
       const [apptsRes, usrRes, configRes] = await Promise.all([
         fetch(`${API_URL}/api/appointments`), 
         fetch(`${API_URL}/api/users`),
-        fetch(`${API_URL}/api/appointments/config`) // Fetch config
+        fetch(`${API_URL}/api/appointments/config`)
       ]);
       
       const appts = await apptsRes.json(); 
@@ -71,7 +65,6 @@ export default function AppointmentsPage() {
 
   useEffect(() => { fetchData(); }, []);
 
-  // NEW: Update Price Config
   const handleUpdatePrice = async () => {
     setIsSavingPrice(true);
     try {
@@ -80,7 +73,7 @@ export default function AppointmentsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ price })
       });
-      alert('Standard price updated successfully! (Synced with mobile app)');
+      alert('Standard price updated successfully!');
     } catch (e) {
       console.error(e);
     } finally {
@@ -100,11 +93,18 @@ export default function AppointmentsPage() {
         setShowModal(false);
         setForm({ user_id: '', title: '', cost: 0, scheduled_at: getLocalToday(), scheduled_time: '10:00', notes: '' });
         
+        // Fix for 500 error: Make sure we send 'user' alongside 'user_id' for schema match
         if (result.data.cost > 0) {
           await fetch(`${API_URL}/api/payments`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              user_id: form.user_id, amount: result.data.cost, reason: `Appointment - ${result.data.title}`, dueDate: scheduled_at, status: 'upcoming', appointment_id: result.data.id
+              user: form.user_id, // Sent explicit user object ID reference
+              user_id: form.user_id, 
+              amount: result.data.cost, 
+              reason: `Appointment - ${result.data.title}`, 
+              dueDate: scheduled_at, 
+              status: 'upcoming', 
+              appointment_id: result.data.id
             })
           });
         }
@@ -120,26 +120,7 @@ export default function AppointmentsPage() {
     } catch (error) { console.error(error); }
   };
 
-  const handleRouteToPayment = (appointment: Appointment) => {
-    const draftData = {
-      user_id: appointment.user.id, amount: appointment.paymentAmount || appointment.amount || 0, reason: `Appointment - ${appointment.title || 'Booking'}`, dueDate: (appointment.scheduledAt || appointment.date || '').split('T')[0], status: 'paid'
-    };
-    localStorage.setItem('draftPayment', JSON.stringify(draftData));
-    setActiveTab('billing'); 
-  };
-
-  const handleDeleteAppointment = async (appointmentId: string) => {
-    if (!window.confirm('Delete this appointment?')) return;
-    try {
-      await fetch(`${API_URL}/api/appointments/${appointmentId}`, { method: 'DELETE' });
-      setAppointments(appointments.filter(a => (a.id || a._id) !== appointmentId));
-    } catch (error) { console.error(error); }
-  };
-
-  const statuses = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'] as const;
-
-  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
-  const formatTime = (dateString: string) => new Date(dateString).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const statuses = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'];
 
   if (loading) return <div className="p-8 text-gray-500 bg-cream min-h-full">Loading appointments...</div>;
 
@@ -155,7 +136,6 @@ export default function AppointmentsPage() {
         </button>
       </div>
 
-      {/* --- NEW: PRICING CONFIG BOX --- */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 max-w-xl">
         <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-4">
           <DollarSign className="w-5 h-5 text-orange-500" /> Standard App Appointment Price
@@ -174,85 +154,73 @@ export default function AppointmentsPage() {
             onClick={handleUpdatePrice} disabled={isSavingPrice}
             className="px-6 py-2 bg-primary text-white font-bold rounded-lg hover:bg-orange-600 transition-colors"
           >
-            {isSavingPrice ? 'Saving...' : 'Update Config'}
+            {isSavingPrice ? 'Saving...' : 'Update'}
           </button>
         </div>
         <p className="text-xs text-gray-500 mt-2">This is the amount users will be charged in the mobile app.</p>
       </div>
 
-      <div className="flex flex-nowrap overflow-x-auto gap-6 pb-6 items-start">
+      <div className="space-y-8 pb-10">
         {statuses.map(status => {
           const colAppointments = appointments.filter(a => a.status === status);
-          
+          if (colAppointments.length === 0) return null;
+
           return (
-            <div key={status} className="flex-shrink-0 w-80 bg-gray-50/50 rounded-xl shadow-sm border border-gray-200 flex flex-col max-h-[calc(100vh-180px)]">
-              
-              {/* SOLID HEADER STRIP */}
-              <div className="px-5 py-4 bg-white border-b border-gray-200 rounded-t-xl flex items-center justify-between z-10 shadow-sm">
-                <h3 className="font-bold text-gray-800 uppercase tracking-wider text-sm">
-                  {status.replace('_', ' ')}
-                </h3>
-                <span className="bg-orange-100 text-primary rounded-full min-w-[24px] h-6 px-1.5 flex items-center justify-center text-xs font-bold">
-                  {colAppointments.length}
-                </span>
+            <div key={status} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex items-center gap-3">
+                 <h3 className="font-bold text-gray-800 uppercase tracking-wider text-sm">{status.replace('_', ' ')}</h3>
+                 <span className="bg-orange-100 text-primary px-2.5 py-0.5 rounded-full text-xs font-bold">{colAppointments.length}</span>
               </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-gray-600">
+                   <thead className="bg-white border-b border-gray-100">
+                      <tr>
+                         <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Date / Time</th>
+                         <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Username</th>
+                         <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Email</th>
+                         <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Phone Number</th>
+                         <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-center">From Mantrika Brahma App</th>
+                         <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-right">Set Status</th>
+                      </tr>
+                   </thead>
+                   <tbody className="divide-y divide-gray-100">
+                      {colAppointments.map(app => {
+                        const safeId = app.id || app._id || Math.random().toString();
+                        
+                        // Parse date safely
+                        let displayDate = 'N/A';
+                        if (app.scheduledAt) displayDate = new Date(app.scheduledAt).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
+                        else if (app.date && app.timeSlot) displayDate = `${new Date(app.date).toLocaleDateString('en-IN')} at ${app.timeSlot}`;
 
-              {/* SCROLLABLE CONTENT AREA */}
-              <div className="p-4 overflow-y-auto flex-1 space-y-3">
-                {colAppointments.map(appointment => {
-                  const safeId = appointment.id || appointment._id || Math.random().toString();
-                  const displayTitle = appointment.title || 'App Booking';
-                  const displayDate = appointment.scheduledAt ? formatDate(appointment.scheduledAt) : (appointment.date ? formatDate(appointment.date) : 'N/A');
-                  const displayTime = appointment.scheduledAt ? formatTime(appointment.scheduledAt) : (appointment.timeSlot || 'N/A');
-                  const displayAmount = appointment.paymentAmount ?? appointment.amount ?? appointment.cost ?? 0;
-                  const displayIsPaid = appointment.isPaid ?? (appointment.paymentStatus === 'paid');
+                        const isAppBooking = !!app.txnId || !!app.timeSlot;
 
-                  return (
-                    <div key={safeId} className="p-4 rounded-lg border border-gray-100 border-l-4 border-l-primary bg-white shadow-sm hover:shadow-md transition-all">
-                      <div className="mb-3">
-                        <p className="font-bold text-gray-800 text-sm">{displayTitle}</p>
-                        <p className="text-xs text-gray-500">{appointment.user?.name || 'Unknown User'}</p>
-                      </div>
-
-                      <div className="space-y-1.5 mb-4 text-xs text-gray-600 font-medium">
-                        <div className="flex items-center gap-2"><Calendar size={14} className="text-primary"/><span>{displayDate}</span></div>
-                        <div className="flex items-center gap-2"><Clock size={14} className="text-primary"/><span>{displayTime}</span></div>
-                        <div className="flex items-center gap-2">
-                          <DollarSign size={14} className="text-primary"/>
-                          <span>₹{displayAmount} {displayIsPaid ? <span className="text-green-600 font-bold ml-1">(Paid)</span> : <span className="text-red-500 font-bold ml-1">(Unpaid)</span>}</span>
-                        </div>
-                        {appointment.txnId && (
-                          <div className="flex items-center gap-2 mt-1">
-                             <span className="text-gray-400 font-mono text-[10px]">TXN: {appointment.txnId}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {appointment.notes && <p className="text-xs text-gray-600 mb-4 p-2 bg-orange-50/50 rounded border border-orange-100 italic">"{appointment.notes}"</p>}
-
-                      <div className="flex flex-col gap-2">
-                        {!displayIsPaid && displayAmount > 0 && (
-                          <button onClick={() => handleRouteToPayment(appointment)} className="w-full px-2 py-2 text-xs bg-orange-50 text-primary font-bold border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors flex items-center justify-center gap-1">
-                            <ExternalLink size={12} /> Collect Payment
-                          </button>
-                        )}
-
-                        <select value={status} onChange={e => handleStatusChange(safeId, e.target.value)} className="w-full px-2 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg focus:ring-primary focus:border-primary cursor-pointer outline-none">
-                          {statuses.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}</option>)}
-                        </select>
-
-                        <button onClick={() => handleDeleteAppointment(safeId)} className="w-full px-2 py-1.5 text-xs font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-                {colAppointments.length === 0 && (
-                  <div className="text-center text-gray-400 text-sm font-medium py-8">
-                    No appointments
-                  </div>
-                )}
+                        return (
+                          <tr key={safeId} className="hover:bg-orange-50/20 transition-colors">
+                             <td className="px-6 py-4 font-medium text-gray-800 whitespace-nowrap">{displayDate}</td>
+                             <td className="px-6 py-4 font-bold text-gray-900">{app.user?.name || 'N/A'}</td>
+                             <td className="px-6 py-4 text-gray-500">{app.user?.email || 'N/A'}</td>
+                             <td className="px-6 py-4 text-gray-500">{app.user?.phone || 'N/A'}</td>
+                             <td className="px-6 py-4 text-center">
+                                {isAppBooking ? (
+                                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">Yes</span>
+                                ) : (
+                                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600">No</span>
+                                )}
+                             </td>
+                             <td className="px-6 py-4 text-right">
+                                <select 
+                                   value={app.status}
+                                   onChange={(e) => handleStatusChange(safeId, e.target.value)}
+                                   className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary font-medium text-gray-700 outline-none cursor-pointer"
+                                >
+                                   {statuses.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}</option>)}
+                                </select>
+                             </td>
+                          </tr>
+                        );
+                      })}
+                   </tbody>
+                </table>
               </div>
             </div>
           );

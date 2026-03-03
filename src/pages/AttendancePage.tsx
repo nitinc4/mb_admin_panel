@@ -95,7 +95,7 @@ export default function AttendancePage() {
   return (
     <div className="p-8 bg-cream min-h-full">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">Unified Attendance System</h1>
+        <h1 className="text-3xl font-bold text-gray-800">Attendance</h1>
         <p className="text-gray-600 mt-1">Manage and track student live class attendance</p>
       </div>
 

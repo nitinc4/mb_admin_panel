@@ -2,15 +2,25 @@ import mongoose from 'mongoose';
 
 const appointmentSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  date: { type: Date, required: true },
-  timeSlot: { type: String, required: true }, // e.g., "11:00 AM"
-  amount: { type: Number, required: true },
-  status: { type: String, enum: ['pending', 'confirmed', 'cancelled'], default: 'confirmed' },
-  paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], default: 'paid' },
-  txnId: { type: String }
+  title: { type: String, default: 'Consultation' },
+  
+  // App Specific Date/Time tracking
+  date: { type: Date }, 
+  timeSlot: { type: String }, 
+  
+  // Admin Panel tracking (Combines Date & Time)
+  scheduledAt: { type: Date }, 
+  
+  // Pricing & Payment sync
+  cost: { type: Number, default: 0 }, 
+  amount: { type: Number, default: 0 },
+  isPaid: { type: Boolean, default: false },
+  paymentAmount: { type: Number, default: 0 },
+  paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
+  txnId: { type: String },
+  
+  status: { type: String, enum: ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'], default: 'pending' },
+  notes: { type: String }
 }, { timestamps: true });
-
-// Ensure a slot can only be booked once per day globally
-appointmentSchema.index({ date: 1, timeSlot: 1 }, { unique: true });
 
 export default mongoose.model('Appointment', appointmentSchema);
