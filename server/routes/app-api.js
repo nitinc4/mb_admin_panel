@@ -7,11 +7,8 @@ const router = express.Router();
 
 /**
  * MIDDLEWARE: The Force-Logout Checkpoint
- * Any route using this will automatically reject blocked users.
  */
 const requireAppAuth = async (req, res, next) => {
-  // In production, you would decode a JWT here. 
-  // For now, we expect the Flutter app to send the User ID in the headers.
   const userId = req.headers['x-user-id'];
   
   if (!userId) {
@@ -22,7 +19,6 @@ const requireAppAuth = async (req, res, next) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'User not found' });
 
-    // THE FORCE LOGOUT TRIGGER
     if (user.isBlocked) {
       return res.status(403).json({ 
         success: false, 
@@ -31,7 +27,7 @@ const requireAppAuth = async (req, res, next) => {
       });
     }
 
-    req.user = user; // Attach user to the request so the next function can use it
+    req.user = user; 
     next();
   } catch (error) {
     res.status(500).json({ success: false, error: 'SERVER_ERROR', message: error.message });
@@ -39,21 +35,72 @@ const requireAppAuth = async (req, res, next) => {
 };
 
 /**
+ * NEW: App Check Email Route
+ * Safely checks if an email exists and if the user has already set a password.
+ */
+router.post('/check-email', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    // Find user (we use select('+password') if it was hidden at the schema level, 
+    // but your schema just deletes it on toJSON, so findOne is fine here)
+    const user = await User.findOne({ email });
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Email not registered' });
+    }
+
+    // Check if the password field exists and is not empty
+    const hasPassword = user.password && user.password.trim() !== '';
+
+    res.json({ success: true, userId: user._id, hasPassword });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * NEW: First-time Password Setup Route
+ */
+router.post('/setup-password', async (req, res) => {
+  try {
+    const { userId, password } = req.body;
+    
+    if (!password) {
+      return res.status(400).json({ success: false, error: 'Password is required' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    // Set the password and save
+    user.password = password;
+    await user.save();
+
+    // Re-fetch with populated tier to return full login data to the app
+    const updatedUser = await User.findById(userId).populate('tier', 'id name monthlyPrice yearlyPrice lifetimePrice');
+    
+    res.json({ success: true, data: updatedUser });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * 0. App Login Route (UNPROTECTED)
- * Verifies the email and password before allowing the app to log in.
  */
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    // Find the user by email and securely fetch their info without returning all users
     const user = await User.findOne({ email }).populate('tier', 'id name monthlyPrice yearlyPrice lifetimePrice');
     
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
 
-    // Verify password (Note: In a production environment, use bcrypt.compare here)
     if (user.password !== password) {
       return res.status(401).json({ success: false, error: 'Invalid password' });
     }
@@ -64,13 +111,11 @@ router.post('/login', async (req, res) => {
   }
 });
 
-
 /**
- * 1. Fetch User Data (Protected Route - Will fail if blocked)
+ * 1. Fetch User Data (Protected Route)
  */
 router.get('/my-profile', requireAppAuth, async (req, res) => {
   try {
-    // We re-fetch to populate the 'tier' object so the Flutter Profile Screen displays correctly
     const userWithTier = await User.findById(req.user._id).populate('tier', 'id name monthlyPrice yearlyPrice lifetimePrice');
     res.json({ success: true, data: userWithTier });
   } catch (error) {
@@ -78,9 +123,8 @@ router.get('/my-profile', requireAppAuth, async (req, res) => {
   }
 });
 
-
 /**
- * 2. Fetch Pending Dues (UNPROTECTED - Blocked users MUST be able to access this to pay!)
+ * 2. Fetch Pending Dues (UNPROTECTED)
  */
 router.get('/my-dues/:userId', async (req, res) => {
   try {
@@ -91,10 +135,8 @@ router.get('/my-dues/:userId', async (req, res) => {
   }
 });
 
-
 /**
- * 3. Process Payment from the Mobile App (e.g., Razorpay/Stripe success callback)
- * UNPROTECTED - Paying unblocks the user automatically.
+ * 3. Process Payment from the Mobile App
  */
 router.post('/process-payment', async (req, res) => {
   try {
@@ -103,19 +145,16 @@ router.post('/process-payment', async (req, res) => {
     const payment = await Payment.findById(payment_id).populate('user');
     if (!payment) return res.status(404).json({ success: false, error: 'Invoice not found' });
 
-    // Mark as paid
     payment.status = 'paid';
     payment.paymentDate = new Date();
     payment.referenceId = reference_id || 'APP_PAYMENT';
     payment.paymentType = payment_type || 'online';
     await payment.save();
 
-    // AUTO-UNBLOCK THE USER
     if (payment.user.isBlocked) {
       await User.findByIdAndUpdate(user_id, { isBlocked: false });
     }
 
-    // RECURRING SUBSCRIPTION LOOP (Auto-generate next month's bill)
     if (payment.reason.startsWith('Subscription -') && payment.user.tier) {
       const userCycle = payment.user.billingCycle;
       
@@ -127,7 +166,6 @@ router.post('/process-payment', async (req, res) => {
           if (userCycle === 'yearly') nextDue.setFullYear(nextDue.getFullYear() + 1);
 
           const nextAmount = userCycle === 'monthly' ? tierInfo.monthlyPrice : tierInfo.yearlyPrice;
-          
           const existingNext = await Payment.findOne({ user: user_id, reason: payment.reason, dueDate: nextDue });
           
           if (!existingNext && nextAmount > 0) {
