@@ -76,7 +76,7 @@ export default function LiveClassesPage() {
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return 'Not set';
     const date = new Date(dateString);
-    return date.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return date.toTimeString() .split(' ')[0] + ' ' + date.toLocaleDateString();
   };
 
   return (
