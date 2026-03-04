@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { User, PlusCircle, Save } from 'lucide-react';
+import { API_URL } from '../config';
 
 export default function ProfilePage() {
   const { adminUser, login } = useApp();
@@ -18,7 +19,7 @@ export default function ProfilePage() {
     e.preventDefault();
     setUpdateMsg({ type: '', text: '' });
     try {
-      const res = await fetch(`http://localhost:3001/api/auth/update/${adminUser.id}`, {
+      const res = await fetch(`${API_URL}/api/auth/update/${adminUser.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -43,7 +44,7 @@ export default function ProfilePage() {
     e.preventDefault();
     setCreateMsg({ type: '', text: '' });
     try {
-      const res = await fetch('http://localhost:3001/api/auth/create', {
+      const res = await fetch(`${API_URL}/api/auth/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
