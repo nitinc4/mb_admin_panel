@@ -2,7 +2,6 @@ import express from 'express';
 import Payment from '../models/Payment.js';
 import User from '../models/User.js';
 import Tier from '../models/Tier.js';
-import { sendPaymentReceipt } from '../utils/mailer.js';
 import { notifyUsers } from '../utils/firebase-notifications.js';
 
 const router = express.Router();
@@ -34,11 +33,6 @@ router.post('/', async (req, res) => {
     });
 
     data = await data.populate('user', 'id name email phone');
-    
-    // Trigger receipt if the payment is created as paid directly
-    if (data.status === 'paid' && data.user) {
-        await sendPaymentReceipt(data.user, data);
-    }
 
     res.status(201).json({ success: true, data });
   } catch (error) {
@@ -55,10 +49,7 @@ router.put('/:id', async (req, res) => {
     if (!data) return res.status(404).json({ success: false, error: 'Payment not found' });
     
     if (req.body.status === 'paid') {
-      // Send payment receipt on status change via email
-      await sendPaymentReceipt(data.user, data);
-
-      // NEW LOGIC: Send In-App Push Notification
+      // Send In-App Push Notification
       await notifyUsers(
         [data.user._id],
         'Payment Successful',
