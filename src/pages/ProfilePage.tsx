@@ -7,6 +7,7 @@ export default function ProfilePage() {
   const { adminUser, login } = useApp();
 
   const [updateName, setUpdateName] = useState(adminUser?.name || '');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [updatePassword, setUpdatePassword] = useState('');
   const [updateMsg, setUpdateMsg] = useState({ type: '', text: '' });
 
@@ -18,18 +19,27 @@ export default function ProfilePage() {
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setUpdateMsg({ type: '', text: '' });
+
+    // Frontend validation: require current password if changing to a new one
+    if (updatePassword && !currentPassword) {
+      setUpdateMsg({ type: 'error', text: 'Please enter your current password to set a new one.' });
+      return;
+    }
+
     try {
       const res = await fetch(`${API_URL}/api/auth/update/${adminUser.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: updateName,
+          currentPassword: currentPassword || undefined,
           password: updatePassword || undefined
         })
       });
       const data = await res.json();
       if (data.success) {
         setUpdateMsg({ type: 'success', text: 'Profile updated successfully!' });
+        setCurrentPassword('');
         setUpdatePassword('');
         login(true, data.user); 
       } else {
@@ -96,17 +106,30 @@ export default function ProfilePage() {
                 onChange={(e) => setUpdateName(e.target.value)}
               />
             </div>
+            
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">New Password (leave blank to keep current)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+              <input
+                type="password"
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Required if changing password"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
               <input
                 type="password"
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 value={updatePassword}
                 onChange={(e) => setUpdatePassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="Leave blank to keep current"
               />
             </div>
-            <button type="submit" className="flex items-center justify-center gap-2 w-full bg-blue-600 text-white p-2.5 rounded-lg hover:bg-blue-700 transition-colors">
+
+            <button type="submit" className="flex items-center justify-center gap-2 w-full bg-blue-600 text-white p-2.5 rounded-lg hover:bg-blue-700 transition-colors mt-2">
               <Save className="w-4 h-4" /> Save Changes
             </button>
           </form>
@@ -159,7 +182,7 @@ export default function ProfilePage() {
                 placeholder="••••••••"
               />
             </div>
-            <button type="submit" className="flex items-center justify-center gap-2 w-full bg-green-600 text-white p-2.5 rounded-lg hover:bg-green-700 transition-colors">
+            <button type="submit" className="flex items-center justify-center gap-2 w-full bg-green-600 text-white p-2.5 rounded-lg hover:bg-green-700 transition-colors mt-2">
               <PlusCircle className="w-4 h-4" /> Create User
             </button>
           </form>

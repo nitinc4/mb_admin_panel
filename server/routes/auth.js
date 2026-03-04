@@ -28,10 +28,21 @@ router.post('/login', async (req, res) => {
 // Update Admin Profile
 router.put('/update/:id', async (req, res) => {
   try {
-    const { name, password } = req.body;
+    const { name, password, currentPassword } = req.body;
     const updateFields = { name };
     
+    // If the user wants to update their password, verify the current password first
     if (password && password.trim() !== '') {
+      const user = await User.findById(req.params.id);
+      
+      if (!user) {
+        return res.status(404).json({ success: false, error: 'User not found' });
+      }
+
+      if (user.password !== currentPassword) {
+        return res.status(401).json({ success: false, error: 'Incorrect current password' });
+      }
+
       updateFields.password = password;
     }
 
