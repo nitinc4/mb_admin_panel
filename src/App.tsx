@@ -44,20 +44,24 @@ function AppRoot() {
   const { isAuthenticated, currentView } = useApp();
   const path = window.location.pathname;
 
-  // Intercept explicit login view
-  if (currentView === 'login') return <LoginPage />;
-
-  // URL-based routing for public pages
+  // 1. Explicitly check for specific public sub-pages first
+  // (This allows even logged-in admins to view the policies if they type the URL)
   if (path === '/privacy-policy') return <PrivacyPage />;
   if (path === '/cancellation-policy') return <CancellationPage />;
-  if (path === '/about-us' || path === '/') return <AboutPage />;
+  if (path === '/about-us') return <AboutPage />;
 
-  // If trying to access admin panel without auth, show About Us as default fallback
-  if (!isAuthenticated) {
-    return <AboutPage />;
+  // 2. Intercept explicit login view if the user is not authenticated yet
+  if (!isAuthenticated && currentView === 'login') {
+    return <LoginPage />;
   }
 
-  return <AppContent />;
+  // 3. If authenticated, always show the dashboard when on the root path '/'
+  if (isAuthenticated) {
+    return <AppContent />;
+  }
+
+  // 4. Default unauthenticated fallback (for '/' or any unknown paths)
+  return <AboutPage />;
 }
 
 function App() {
