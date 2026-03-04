@@ -1,6 +1,8 @@
 import admin from 'firebase-admin';
 import fs from 'fs';
 import path from 'path';
+import User from '../models/User.js';
+import UserNotification from '../models/UserNotification.js';
 
 // Check Render's secure path first, fallback to local root for development
 const renderSecretPath = '/etc/secrets/firebase-service-account.json';
@@ -31,59 +33,27 @@ if (serviceAccountPath) {
   console.warn('⚠️ Firebase Service Account JSON not found in /etc/secrets or local root. Push notifications will be simulated.');
 }
 
-/**
- * Send a notification to multiple FCM tokens
- * @param {Array<String>} tokens - Array of device tokens
- * @param {String} title - Notification Title
- * @param {String} body - Notification Body
- * @param {String} imageUrl - Optional Image URL
- * @param {Object} data - Key-value pairs for handling clicks in Flutter
- */
 export const sendPushNotification = async (tokens, title, body, imageUrl = null, data = {}) => {
   if (!tokens || tokens.length === 0) return;
 
-  // Filter out empty, null, or undefined tokens
   const validTokens = tokens.filter(t => t && typeof t === 'string' && t.trim() !== '');
   if (validTokens.length === 0) return;
 
-  // Ensure all values in the data object are strings (FCM requirement)
   const stringifiedData = {};
   for (const [key, value] of Object.entries(data)) {
       stringifiedData[key] = String(value);
   }
 
   const message = {
-    notification: {
-      title,
-      body,
-      ...(imageUrl && { imageUrl })
-    },
-    data: {
-      ...stringifiedData,
-      click_action: 'FLUTTER_NOTIFICATION_CLICK' // Standard for background handling in Flutter
-    },
+    notification: { title, body, ...(imageUrl && { imageUrl }) },
+    data: { ...stringifiedData, click_action: 'FLUTTER_NOTIFICATION_CLICK' },
     tokens: validTokens,
-    // Android specific settings for high priority
-    android: {
-      priority: 'high',
-      notification: {
-        channelId: 'high_importance_channel',
-      }
-    },
-    // iOS specific settings
-    apns: {
-      payload: {
-        aps: {
-          contentAvailable: true,
-          sound: 'default'
-        }
-      }
-    }
+    android: { priority: 'high', notification: { channelId: 'high_importance_channel' } },
+    apns: { payload: { aps: { contentAvailable: true, sound: 'default' } } }
   };
 
   if (isFirebaseReady) {
     try {
-      // Split into batches of 500 (FCM limit for sendEachForMulticast)
       const chunkSize = 500;
       for (let i = 0; i < validTokens.length; i += chunkSize) {
           const chunk = validTokens.slice(i, i + chunkSize);
@@ -95,7 +65,50 @@ export const sendPushNotification = async (tokens, title, body, imageUrl = null,
       console.error('Error sending FCM:', error);
     }
   } else {
-    console.log(`[SIMULATED PUSH] Title: "${title}" | Body: "${body}" | Sent to ${validTokens.length} devices.`);
-    console.log(`[SIMULATED PUSH DATA]`, stringifiedData);
+    console.log(`[SIMULATED PUSH] Title: "${title}" | Sent to ${validTokens.length} devices.`);
   }
+};
+
+/**
+ * NEW: Saves notification to DB and fires Push Notification
+ */
+export const notifyUsers = async (userIds, title, body, data, type, relatedId = null) => {
+  if (!userIds || userIds.length === 0) return;
+
+  try {
+    const users = await User.find({ _id: { $in: userIds } }).select('_id fcm_token');
+    
+    // 1. Save to DB for the In-App Notification Panel
+    const notificationsToSave = users.map(u => ({
+      user: u._id, title, body, type,
+      relatedId: relatedId ? String(relatedId) : null,
+      isRead: false
+    }));
+
+    if (notificationsToSave.length > 0) {
+      await UserNotification.insertMany(notificationsToSave);
+    }
+
+    // 2. Extract tokens and send Push
+    const tokens = users.map(u => u.fcm_token).filter(t => t);
+    if (tokens.length > 0) {
+      await sendPushNotification(tokens, title, body, null, data);
+    }
+  } catch (error) {
+    console.error('Error in notifyUsers:', error);
+  }
+};
+
+/**
+ * NEW: Helper to find all users enrolled in a specific batch
+ */
+export const getUsersForBatch = async (batch) => {
+  if (!batch) return [];
+  const users = await User.find({
+    $or: [
+      { enrolledBatches: batch._id },
+      { tier: { $in: batch.allowedTiers || [] } }
+    ]
+  }).select('_id');
+  return users.map(u => u._id);
 };

@@ -3,6 +3,7 @@ import Payment from '../models/Payment.js';
 import User from '../models/User.js';
 import Tier from '../models/Tier.js';
 import { sendPaymentReceipt } from '../utils/mailer.js';
+import { notifyUsers } from '../utils/firebase-notifications.js';
 
 const router = express.Router();
 
@@ -54,9 +55,19 @@ router.put('/:id', async (req, res) => {
     if (!data) return res.status(404).json({ success: false, error: 'Payment not found' });
     
     if (req.body.status === 'paid') {
-      // Send payment receipt on status change
+      // Send payment receipt on status change via email
       await sendPaymentReceipt(data.user, data);
 
+      // NEW LOGIC: Send In-App Push Notification
+      await notifyUsers(
+        [data.user._id],
+        'Payment Successful',
+        `Received ₹${data.amount} for ${data.reason}`,
+        { route: '/billing', paymentId: String(data._id) },
+        'payment',
+        data._id
+      );
+      
       // 1. Unblock User if they paid
       await User.findByIdAndUpdate(data.user._id, { isBlocked: false });
 

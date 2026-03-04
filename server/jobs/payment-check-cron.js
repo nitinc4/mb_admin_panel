@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import Payment from '../models/Payment.js';
 import User from '../models/User.js';
 import { sendPaymentReminder } from '../utils/mailer.js'; 
+import { notifyUsers } from '../utils/firebase-notifications.js'; // NEW IMPORT
 
 export const startPaymentCheckCron = () => {
   // Runs every day at 00:00 (Midnight)
@@ -14,7 +15,7 @@ export const startPaymentCheckCron = () => {
       const newlyDuePayments = await Payment.find({
         status: 'upcoming', 
         dueDate: { $lt: now }
-      }).populate('user', 'name email');
+      }).populate('user', 'name email fcm_token'); // Ensure fcm_token is populated
 
       if (newlyDuePayments.length > 0) {
         const dueIds = newlyDuePayments.map(p => p._id);
@@ -24,9 +25,17 @@ export const startPaymentCheckCron = () => {
           { $set: { status: 'due' } }
         );
         
-        // Send initial reminder email
+        // NEW LOGIC: Send email AND push reminder
         for (const payment of newlyDuePayments) {
            await sendPaymentReminder(payment.user, payment, false);
+           await notifyUsers(
+             [payment.user._id],
+             'Payment Reminder',
+             `Your payment of ₹${payment.amount} is due today.`,
+             { route: '/billing', paymentId: String(payment._id) },
+             'payment_reminder',
+             payment._id
+           );
         }
         console.log(`Marked ${dueIds.length} payments as due and sent reminders.`);
       }
@@ -37,7 +46,7 @@ export const startPaymentCheckCron = () => {
       const severelyOverduePayments = await Payment.find({ 
         status: 'due', 
         dueDate: { $lt: tenDaysAgo } 
-      }).populate('user', 'name email');
+      }).populate('user', 'name email fcm_token'); // Ensure fcm_token is populated
 
       const userIdsToBlock = [...new Set(severelyOverduePayments.map(p => p.user._id.toString()))];
 
@@ -47,9 +56,17 @@ export const startPaymentCheckCron = () => {
           { $set: { isBlocked: true } }
         );
         
-        // Send urgent overdue notice
+        // NEW LOGIC: Send email AND urgent push reminder
         for (const payment of severelyOverduePayments) {
            await sendPaymentReminder(payment.user, payment, true);
+           await notifyUsers(
+             [payment.user._id],
+             'URGENT: Overdue Payment',
+             `Your payment is 10 days overdue. Your account has been restricted.`,
+             { route: '/billing', paymentId: String(payment._id) },
+             'payment_reminder',
+             payment._id
+           );
         }
         console.log(`Auto-blocked ${userIdsToBlock.length} users due to 10-day overdue payments and sent urgent reminders.`);
       }
