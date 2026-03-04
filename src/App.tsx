@@ -10,9 +10,12 @@ import NotificationsPage from './pages/NotificationsPage';
 import MessagesPage from './pages/MessagesPage'; 
 import SettingsPage from './pages/SettingsPage';
 import AttendancePage from './pages/AttendancePage'; 
-import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import ProfilePage from './pages/ProfilePage';
+
+import AboutPage from './pages/AboutPage';
+import PrivacyPage from './pages/PrivacyPage';
+import CancellationPage from './pages/CancellationPage';
 
 function AppContent() {
   const { activeTab } = useApp();
@@ -29,7 +32,7 @@ function AppContent() {
       case 'messages': return <MessagesPage />; 
       case 'services': return <SettingsPage />;
       case 'attendance': return <AttendancePage />; 
-      case 'profile': return <ProfilePage />; // <-- NEW CASE
+      case 'profile': return <ProfilePage />;
       default: return <DashboardPage />;
     }
   };
@@ -39,10 +42,19 @@ function AppContent() {
 
 function AppRoot() {
   const { isAuthenticated, currentView } = useApp();
+  const path = window.location.pathname;
 
-  if (!isAuthenticated || currentView === 'landing' || currentView === 'login') {
-    if (currentView === 'login') return <LoginPage />;
-    return <LandingPage />;
+  // Intercept explicit login view
+  if (currentView === 'login') return <LoginPage />;
+
+  // URL-based routing for public pages
+  if (path === '/privacy-policy') return <PrivacyPage />;
+  if (path === '/cancellation-policy') return <CancellationPage />;
+  if (path === '/about-us' || path === '/') return <AboutPage />;
+
+  // If trying to access admin panel without auth, show About Us as default fallback
+  if (!isAuthenticated) {
+    return <AboutPage />;
   }
 
   return <AppContent />;

@@ -3,6 +3,7 @@ import { Plus, X, DollarSign, Trash2 } from 'lucide-react';
 import { useApp } from '../context/AppContext'; 
 import { API_URL } from '../config';
 
+// ... (KEEP INTERFACES AND HELPER FUNCTIONS THE SAME) ...
 interface User { id?: string; _id?: string; email: string; name: string; phone?: string; }
 interface Appointment { 
   id: string; 
@@ -13,7 +14,6 @@ interface Appointment {
   scheduledAt?: string; 
   status: string; 
   notes?: string; 
-  
   date?: string;
   timeSlot?: string;
   txnId?: string;
@@ -33,48 +33,34 @@ export default function AppointmentsPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-
   const [price, setPrice] = useState('500');
   const [isSavingPrice, setIsSavingPrice] = useState(false);
-
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
 
+  // NEW TAB STATE
+  const [activeStatus, setActiveStatus] = useState('pending');
+
   const [form, setForm] = useState({ 
-    user_id: '', 
-    title: '', 
-    date: getLocalToday(), 
-    timeSlot: '', 
-    notes: '' 
+    user_id: '', title: '', date: getLocalToday(), timeSlot: '', notes: '' 
   });
 
+  // ... (KEEP FETCH AND LOGIC FUNCTIONS EXACTLY THE SAME) ...
   const fetchData = async () => {
     try {
       setLoading(true);
       const [apptsRes, usrRes, configRes] = await Promise.all([
-        fetch(`${API_URL}/api/appointments`), 
-        fetch(`${API_URL}/api/users`),
-        fetch(`${API_URL}/api/appointments/config`)
+        fetch(`${API_URL}/api/appointments`), fetch(`${API_URL}/api/users`), fetch(`${API_URL}/api/appointments/config`)
       ]);
-      
-      const appts = await apptsRes.json(); 
-      const usr = await usrRes.json();
-      const config = await configRes.json();
-
+      const appts = await apptsRes.json(); const usr = await usrRes.json(); const config = await configRes.json();
       if (appts.success) setAppointments(appts.data); 
       if (usr.success) setUsers(usr.data);
       if (config.success && config.data) setPrice(config.data.price.toString());
-
-    } catch (error) { 
-      console.error('Error:', error); 
-    } finally { 
-      setLoading(false); 
-    }
+    } catch (error) { console.error('Error:', error); } finally { setLoading(false); }
   };
 
   useEffect(() => { fetchData(); }, []);
 
-  // Fetch Available Slots Dynamically for Admin Modal
   useEffect(() => {
     if (showModal && form.date) {
       setIsLoadingSlots(true);
@@ -83,11 +69,8 @@ export default function AppointmentsPage() {
         .then(data => {
           if (data.success) {
             setAvailableSlots(data.data);
-            if (data.data.length > 0 && !data.data.includes(form.timeSlot)) {
-              setForm(f => ({ ...f, timeSlot: data.data[0] }));
-            } else if (data.data.length === 0) {
-              setForm(f => ({ ...f, timeSlot: '' }));
-            }
+            if (data.data.length > 0 && !data.data.includes(form.timeSlot)) setForm(f => ({ ...f, timeSlot: data.data[0] }));
+            else if (data.data.length === 0) setForm(f => ({ ...f, timeSlot: '' }));
           }
         })
         .finally(() => setIsLoadingSlots(false));
@@ -97,42 +80,21 @@ export default function AppointmentsPage() {
   const handleUpdatePrice = async () => {
     setIsSavingPrice(true);
     try {
-      const response = await fetch(`${API_URL}/api/appointments/config`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ price: Number(price) })
-      });
+      const response = await fetch(`${API_URL}/api/appointments/config`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ price: Number(price) }) });
       const result = await response.json();
-      if (result.success) {
-         alert('Standard price updated successfully!');
-      } else {
-         alert('Failed to update price');
-      }
-    } catch (e) {
-      console.error(e);
-      alert('Error updating price configuration');
-    } finally {
-      setIsSavingPrice(false);
-    }
+      if (result.success) alert('Standard price updated successfully!');
+      else alert('Failed to update price');
+    } catch (e) { console.error(e); alert('Error updating price configuration'); } finally { setIsSavingPrice(false); }
   };
 
   const handleCreateAppointment = async () => {
     if (!form.user_id || !form.title || !form.timeSlot) return alert('User, Title, and Time Slot are required.');
     try {
-      const response = await fetch(`${API_URL}/api/appointments`, { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify(form) 
-      });
+      const response = await fetch(`${API_URL}/api/appointments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
       const result = await response.json();
-      
       if (result.success) {
-        setAppointments([result.data, ...appointments]);
-        setShowModal(false);
-        setForm({ user_id: '', title: '', date: getLocalToday(), timeSlot: '', notes: '' });
-      } else {
-        alert(result.message || 'Error booking slot');
-      }
+        setAppointments([result.data, ...appointments]); setShowModal(false); setForm({ user_id: '', title: '', date: getLocalToday(), timeSlot: '', notes: '' });
+      } else alert(result.message || 'Error booking slot');
     } catch (error) { console.error(error); }
   };
 
@@ -153,6 +115,7 @@ export default function AppointmentsPage() {
   };
 
   const statuses = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'];
+  const activeAppointments = appointments.filter(a => a.status === activeStatus);
 
   if (loading) return <div className="p-8 text-gray-500 bg-cream min-h-full">Loading appointments...</div>;
 
@@ -186,94 +149,101 @@ export default function AppointmentsPage() {
             onClick={handleUpdatePrice} disabled={isSavingPrice}
             className="px-6 py-2 bg-primary text-white font-bold rounded-lg hover:bg-orange-600 transition-colors"
           >
-            {isSavingPrice ? 'Saving...' : 'Update Config'}
+            {isSavingPrice ? 'Saving...' : 'Update Price'}
           </button>
         </div>
-        <p className="text-xs text-gray-500 mt-2">This is the default amount users will be charged. Admin manual bookings log an unpaid invoice for this amount.</p>
       </div>
 
-      <div className="space-y-8 pb-10">
-        {statuses.map(status => {
-          const colAppointments = appointments.filter(a => a.status === status);
-          if (colAppointments.length === 0) return null;
-
+      {/* NEW TABS UI */}
+      <div className="flex gap-2 border-b border-gray-200 mb-6 overflow-x-auto">
+        {statuses.map(s => {
+          const count = appointments.filter(a => a.status === s).length;
           return (
-            <div key={status} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex items-center gap-3">
-                 <h3 className="font-bold text-gray-800 uppercase tracking-wider text-sm">{status.replace('_', ' ')}</h3>
-                 <span className="bg-orange-100 text-primary px-2.5 py-0.5 rounded-full text-xs font-bold">{colAppointments.length}</span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-gray-600">
-                   <thead className="bg-white border-b border-gray-100">
-                      <tr>
-                         <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Date / Time</th>
-                         <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Username</th>
-                         <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Email</th>
-                         <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Phone Number</th>
-                         <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-center">From App</th>
-                         <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-right">Actions</th>
-                      </tr>
-                   </thead>
-                   <tbody className="divide-y divide-gray-100">
-                      {colAppointments.map(app => {
-                        const safeId = app.id || app._id || Math.random().toString();
-                        
-                        // Strict format to completely ignore +5:30 timezone shifting jumps
-                        let displayDate = 'N/A';
-                        if (app.date && app.timeSlot) {
-                           const pureDate = app.date.split('T')[0];
-                           const [y, m, d] = pureDate.split('-');
-                           displayDate = `${d}/${m}/${y} at ${app.timeSlot}`;
-                        } else if (app.scheduledAt) {
-                           const pureDate = app.scheduledAt.split('T')[0];
-                           const [y, m, d] = pureDate.split('-');
-                           const dt = new Date(app.scheduledAt);
-                           displayDate = `${d}/${m}/${y} at ${dt.getHours().toString().padStart(2,'0')}:${dt.getMinutes().toString().padStart(2,'0')}`;
-                        }
-
-                        const isAppBooking = !!app.txnId || !!app.timeSlot;
-
-                        return (
-                          <tr key={safeId} className="hover:bg-orange-50/20 transition-colors">
-                             <td className="px-6 py-4 font-medium text-gray-800 whitespace-nowrap">{displayDate}</td>
-                             <td className="px-6 py-4 font-bold text-gray-900">{app.user?.name || 'N/A'}</td>
-                             <td className="px-6 py-4 text-gray-500">{app.user?.email || 'N/A'}</td>
-                             <td className="px-6 py-4 text-gray-500">{app.user?.phone || 'N/A'}</td>
-                             <td className="px-6 py-4 text-center">
-                                {isAppBooking ? (
-                                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">Yes</span>
-                                ) : (
-                                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600">No</span>
-                                )}
-                             </td>
-                             <td className="px-6 py-4 text-right flex items-center justify-end gap-3">
-                                <select 
-                                   value={app.status}
-                                   onChange={(e) => handleStatusChange(safeId, e.target.value)}
-                                   className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary font-medium text-gray-700 outline-none cursor-pointer"
-                                >
-                                   {statuses.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}</option>)}
-                                </select>
-                                <button 
-                                  onClick={() => handleDeleteAppointment(safeId)}
-                                  className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                  title="Delete Appointment"
-                                >
-                                  <Trash2 className="w-5 h-5" />
-                                </button>
-                             </td>
-                          </tr>
-                        );
-                      })}
-                   </tbody>
-                </table>
-              </div>
-            </div>
+            <button 
+               key={s}
+               onClick={() => setActiveStatus(s)}
+               className={`flex items-center gap-2 px-4 py-3 text-sm font-bold uppercase tracking-wider whitespace-nowrap transition-colors border-b-2 ${activeStatus === s ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+               {s.replace('_', ' ')}
+               <span className={`px-2 py-0.5 rounded-full text-xs ${activeStatus === s ? 'bg-orange-100 text-primary' : 'bg-gray-100 text-gray-500'}`}>{count}</span>
+            </button>
           );
         })}
       </div>
 
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-10">
+        <div className="overflow-x-auto">
+          {activeAppointments.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">No {activeStatus.replace('_', ' ')} appointments found.</div>
+          ) : (
+            <table className="w-full text-left text-sm text-gray-600">
+               <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr>
+                     <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Date / Time</th>
+                     <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Username</th>
+                     <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Email</th>
+                     <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Phone Number</th>
+                     <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-center">From App</th>
+                     <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-right">Actions</th>
+                  </tr>
+               </thead>
+               <tbody className="divide-y divide-gray-100">
+                  {activeAppointments.map(app => {
+                    const safeId = app.id || app._id || Math.random().toString();
+                    
+                    let displayDate = 'N/A';
+                    if (app.date && app.timeSlot) {
+                       const pureDate = app.date.split('T')[0];
+                       const [y, m, d] = pureDate.split('-');
+                       displayDate = `${d}/${m}/${y} at ${app.timeSlot}`;
+                    } else if (app.scheduledAt) {
+                       const pureDate = app.scheduledAt.split('T')[0];
+                       const [y, m, d] = pureDate.split('-');
+                       const dt = new Date(app.scheduledAt);
+                       displayDate = `${d}/${m}/${y} at ${dt.getHours().toString().padStart(2,'0')}:${dt.getMinutes().toString().padStart(2,'0')}`;
+                    }
+
+                    const isAppBooking = !!app.txnId || !!app.timeSlot;
+
+                    return (
+                      <tr key={safeId} className="hover:bg-orange-50/20 transition-colors">
+                         <td className="px-6 py-4 font-medium text-gray-800 whitespace-nowrap">{displayDate}</td>
+                         <td className="px-6 py-4 font-bold text-gray-900">{app.user?.name || 'N/A'}</td>
+                         <td className="px-6 py-4 text-gray-500">{app.user?.email || 'N/A'}</td>
+                         <td className="px-6 py-4 text-gray-500">{app.user?.phone || 'N/A'}</td>
+                         <td className="px-6 py-4 text-center">
+                            {isAppBooking ? (
+                               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">Yes</span>
+                            ) : (
+                               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600">No</span>
+                            )}
+                         </td>
+                         <td className="px-6 py-4 text-right flex items-center justify-end gap-3">
+                            <select 
+                               value={app.status}
+                               onChange={(e) => handleStatusChange(safeId, e.target.value)}
+                               className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary font-medium text-gray-700 outline-none cursor-pointer"
+                            >
+                               {statuses.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}</option>)}
+                            </select>
+                            <button 
+                              onClick={() => handleDeleteAppointment(safeId)}
+                              className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete Appointment"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                         </td>
+                      </tr>
+                    );
+                  })}
+               </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* ... (KEEP MODAL HTML EXACTLY THE SAME) ... */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">

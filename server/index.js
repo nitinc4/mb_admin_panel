@@ -19,36 +19,36 @@ import serviceCategoriesRoutes from './routes/service-categories.js';
 import appointmentsRoutes from './routes/appointments.js';
 import pricingRoutes from './routes/pricing.js';
 import attendanceRoutes from './routes/attendance.js'; 
-import authRoutes from './routes/auth.js'; // <-- NEW IMPORT
+import authRoutes from './routes/auth.js'; 
 
 import { startNotificationCron } from './jobs/notification-cron.js';
 import { startPaymentCheckCron } from './jobs/payment-check-cron.js';
 import Message from './models/Message.js';
-import User from './models/User.js'; // <-- NEW IMPORT
+import Admin from './models/Admin.js'; // <-- NEW IMPORT
 
 dotenv.config();
 
 // Connect to MongoDB
 connectDB(); 
 
+// Create default admin in the NEW Admin table
 const createDefaultAdmin = async () => {
   try {
-    const adminExists = await User.findOne({ email: 'admin' });
+    const adminExists = await Admin.findOne({ email: 'admin' });
     if (!adminExists) {
-      await User.create({
+      await Admin.create({
         name: 'Super Admin',
         email: 'admin',
         password: 'Admin@1234',
-        role: 'admin',
         isActive: true
       });
-      console.log('Default admin created: admin / Admin@1234');
+      console.log('Default admin created in Admin table: admin / Admin@1234');
     }
   } catch (e) {
     console.error('Error creating default admin', e);
   }
 };
-createDefaultAdmin(); // Initialize the requested Admin user
+createDefaultAdmin(); 
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -80,13 +80,11 @@ app.use('/api/appointments', appointmentsRoutes);
 app.use('/api/pricing', pricingRoutes);
 app.use('/api/messages', messagesRoutes); 
 app.use('/api/attendance', attendanceRoutes); 
-app.use('/api/auth', authRoutes); // <-- NEW ROUTE
+app.use('/api/auth', authRoutes); // Auth routes now handle admins
 
-// Start Background CRON Jobs
 startPaymentCheckCron();
 startNotificationCron();
 
-// --- SOCKET.IO LOGIC ---
 io.on('connection', (socket) => {
   console.log(`User connected to Socket.io: ${socket.id}`);
   socket.on('join_batch', (batchId) => {

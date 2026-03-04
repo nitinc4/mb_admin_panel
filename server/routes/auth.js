@@ -1,5 +1,5 @@
 import express from 'express';
-import User from '../models/User.js';
+import Admin from '../models/Admin.js';
 
 const router = express.Router();
 
@@ -8,18 +8,27 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    // Check credentials (mapping frontend username to schema email)
-    const user = await User.findOne({ email, role: 'admin' });
+    const admin = await Admin.findOne({ email });
 
-    if (!user || user.password !== password) {
+    if (!admin || admin.password !== password) {
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
 
-    if (!user.isActive || user.isBlocked) {
+    if (!admin.isActive) {
       return res.status(403).json({ success: false, error: 'Account is deactivated' });
     }
 
-    res.json({ success: true, user });
+    res.json({ success: true, user: admin });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get All Admins
+router.get('/admins', async (req, res) => {
+  try {
+    const admins = await Admin.find().select('-password');
+    res.json({ success: true, data: admins });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -31,32 +40,31 @@ router.put('/update/:id', async (req, res) => {
     const { name, password, currentPassword } = req.body;
     const updateFields = { name };
     
-    // If the user wants to update their password, verify the current password first
     if (password && password.trim() !== '') {
-      const user = await User.findById(req.params.id);
+      const admin = await Admin.findById(req.params.id);
       
-      if (!user) {
-        return res.status(404).json({ success: false, error: 'User not found' });
+      if (!admin) {
+        return res.status(404).json({ success: false, error: 'Admin not found' });
       }
 
-      if (user.password !== currentPassword) {
+      if (admin.password !== currentPassword) {
         return res.status(401).json({ success: false, error: 'Incorrect current password' });
       }
 
       updateFields.password = password;
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
+    const updatedAdmin = await Admin.findByIdAndUpdate(
       req.params.id,
       { $set: updateFields },
       { new: true, runValidators: true }
     );
 
-    if (!updatedUser) {
-      return res.status(404).json({ success: false, error: 'User not found' });
+    if (!updatedAdmin) {
+      return res.status(404).json({ success: false, error: 'Admin not found' });
     }
 
-    res.json({ success: true, user: updatedUser });
+    res.json({ success: true, user: updatedAdmin });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -67,20 +75,32 @@ router.post('/create', async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
+    const existingAdmin = await Admin.findOne({ email });
+    if (existingAdmin) {
       return res.status(400).json({ success: false, error: 'Username already exists' });
     }
 
-    const newUser = await User.create({
+    const newAdmin = await Admin.create({
       name,
       email, 
       password,
-      role: 'admin',
       isActive: true
     });
 
-    res.status(201).json({ success: true, user: newUser });
+    res.status(201).json({ success: true, user: newAdmin });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Delete Admin
+router.delete('/delete/:id', async (req, res) => {
+  try {
+    const deletedAdmin = await Admin.findByIdAndDelete(req.params.id);
+    if (!deletedAdmin) {
+      return res.status(404).json({ success: false, error: 'Admin not found' });
+    }
+    res.json({ success: true, message: 'Admin deleted successfully' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
