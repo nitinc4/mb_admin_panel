@@ -18,16 +18,37 @@ import servicesRoutes from './routes/services.js';
 import serviceCategoriesRoutes from './routes/service-categories.js';
 import appointmentsRoutes from './routes/appointments.js';
 import pricingRoutes from './routes/pricing.js';
-import attendanceRoutes from './routes/attendance.js'; // <-- NEW IMPORT
+import attendanceRoutes from './routes/attendance.js'; 
+import authRoutes from './routes/auth.js'; // <-- NEW IMPORT
 
 import { startNotificationCron } from './jobs/notification-cron.js';
 import { startPaymentCheckCron } from './jobs/payment-check-cron.js';
 import Message from './models/Message.js';
+import User from './models/User.js'; // <-- NEW IMPORT
 
 dotenv.config();
 
 // Connect to MongoDB
 connectDB(); 
+
+const createDefaultAdmin = async () => {
+  try {
+    const adminExists = await User.findOne({ email: 'admin' });
+    if (!adminExists) {
+      await User.create({
+        name: 'Super Admin',
+        email: 'admin',
+        password: 'Admin@1234',
+        role: 'admin',
+        isActive: true
+      });
+      console.log('Default admin created: admin / Admin@1234');
+    }
+  } catch (e) {
+    console.error('Error creating default admin', e);
+  }
+};
+createDefaultAdmin(); // Initialize the requested Admin user
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -58,7 +79,8 @@ app.use('/api/service-categories', serviceCategoriesRoutes);
 app.use('/api/appointments', appointmentsRoutes);
 app.use('/api/pricing', pricingRoutes);
 app.use('/api/messages', messagesRoutes); 
-app.use('/api/attendance', attendanceRoutes); // <-- NEW ROUTE
+app.use('/api/attendance', attendanceRoutes); 
+app.use('/api/auth', authRoutes); // <-- NEW ROUTE
 
 // Start Background CRON Jobs
 startPaymentCheckCron();
