@@ -2,6 +2,7 @@ import express from 'express';
 import Payment from '../models/Payment.js';
 import User from '../models/User.js';
 import Tier from '../models/Tier.js';
+import { sendPaymentReceipt } from '../utils/mailer.js';
 
 const router = express.Router();
 
@@ -31,7 +32,13 @@ router.post('/', async (req, res) => {
       status: status || 'upcoming', appointment: appointment_id || null
     });
 
-    data = await data.populate('user', 'id name phone');
+    data = await data.populate('user', 'id name email phone');
+    
+    // Trigger receipt if the payment is created as paid directly
+    if (data.status === 'paid' && data.user) {
+        await sendPaymentReceipt(data.user, data);
+    }
+
     res.status(201).json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -42,11 +49,14 @@ router.put('/:id', async (req, res) => {
   try {
     const data = await Payment.findByIdAndUpdate(
       req.params.id, req.body, { returnDocument: 'after' }
-    ).populate('user', 'id name phone isBlocked tier billingCycle');
+    ).populate('user', 'id name email phone isBlocked tier billingCycle');
 
     if (!data) return res.status(404).json({ success: false, error: 'Payment not found' });
     
     if (req.body.status === 'paid') {
+      // Send payment receipt on status change
+      await sendPaymentReceipt(data.user, data);
+
       // 1. Unblock User if they paid
       await User.findByIdAndUpdate(data.user._id, { isBlocked: false });
 

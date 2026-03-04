@@ -8,6 +8,7 @@ lerna-debug.log*
 
 TODO
 
+
 node_modules
 dist
 dist-ssr
@@ -23,3 +24,4 @@ dist-ssr
 *.sln
 *.sw?
 .env
+firebase-service-account.json
