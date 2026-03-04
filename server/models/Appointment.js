@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 const appointmentSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   title: { type: String, default: 'Consultation' },
+  appointmentType: { type: String, enum: ['normal', 'vip'], default: 'normal' },
   
   // App Specific Date/Time tracking
   date: { type: Date }, 
