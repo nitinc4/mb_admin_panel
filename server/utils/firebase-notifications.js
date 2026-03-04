@@ -2,19 +2,33 @@ import admin from 'firebase-admin';
 import fs from 'fs';
 import path from 'path';
 
-const serviceAccountPath = path.resolve('./firebase-service-account.json');
+// Check Render's secure path first, fallback to local root for development
+const renderSecretPath = '/etc/secrets/firebase-service-account.json';
+const localSecretPath = path.resolve('./firebase-service-account.json');
+
+let serviceAccountPath = null;
+
+if (fs.existsSync(renderSecretPath)) {
+  serviceAccountPath = renderSecretPath;
+} else if (fs.existsSync(localSecretPath)) {
+  serviceAccountPath = localSecretPath;
+}
 
 let isFirebaseReady = false;
 
-if (fs.existsSync(serviceAccountPath)) {
-  const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-  });
-  isFirebaseReady = true;
-  console.log('✅ Firebase Admin SDK Initialized Successfully');
+if (serviceAccountPath) {
+  try {
+    const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    isFirebaseReady = true;
+    console.log(`✅ Firebase Admin SDK Initialized Successfully from: ${serviceAccountPath}`);
+  } catch (error) {
+    console.error('❌ Failed to initialize Firebase Admin SDK:', error);
+  }
 } else {
-  console.warn('⚠️ Firebase Service Account JSON not found. Push notifications will be simulated.');
+  console.warn('⚠️ Firebase Service Account JSON not found in /etc/secrets or local root. Push notifications will be simulated.');
 }
 
 /**
@@ -23,7 +37,7 @@ if (fs.existsSync(serviceAccountPath)) {
  * @param {String} title - Notification Title
  * @param {String} body - Notification Body
  * @param {String} imageUrl - Optional Image URL
- * @param {Object} data - Key-value pairs for handling clicks in Flutter (e.g., { route: '/batch', id: '123' })
+ * @param {Object} data - Key-value pairs for handling clicks in Flutter
  */
 export const sendPushNotification = async (tokens, title, body, imageUrl = null, data = {}) => {
   if (!tokens || tokens.length === 0) return;
@@ -76,8 +90,6 @@ export const sendPushNotification = async (tokens, title, body, imageUrl = null,
           message.tokens = chunk;
           const response = await admin.messaging().sendEachForMulticast(message);
           console.log(`FCM Sent Batch: ${response.successCount} successful, ${response.failureCount} failed.`);
-          
-          // Optional: Handle failed tokens here (e.g., remove them from the database if token is unregistered)
       }
     } catch (error) {
       console.error('Error sending FCM:', error);
