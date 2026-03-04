@@ -16,6 +16,7 @@ import ProfilePage from './pages/ProfilePage';
 import AboutPage from './pages/AboutPage';
 import PrivacyPage from './pages/PrivacyPage';
 import CancellationPage from './pages/CancellationPage';
+import TermsPage from './pages/TermsPage';
 
 function AppContent() {
   const { activeTab } = useApp();
@@ -45,9 +46,9 @@ function AppRoot() {
   const path = window.location.pathname;
 
   // 1. Explicitly check for specific public sub-pages first
-  // (This allows even logged-in admins to view the policies if they type the URL)
   if (path === '/privacy-policy') return <PrivacyPage />;
   if (path === '/cancellation-policy') return <CancellationPage />;
+  if (path === '/terms-and-conditions') return <TermsPage />;
   if (path === '/about-us') return <AboutPage />;
 
   // 2. Intercept explicit login view if the user is not authenticated yet
@@ -60,7 +61,7 @@ function AppRoot() {
     return <AppContent />;
   }
 
-  // 4. Default unauthenticated fallback (for '/' or any unknown paths)
+  // 4. Default unauthenticated fallback
   return <AboutPage />;
 }
 

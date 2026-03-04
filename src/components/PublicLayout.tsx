@@ -17,6 +17,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
             <a href="/about-us" className="hover:text-orange-600 transition-colors">About Us</a>
             <a href="/privacy-policy" className="hover:text-orange-600 transition-colors">Privacy Policy</a>
             <a href="/cancellation-policy" className="hover:text-orange-600 transition-colors">Cancellation</a>
+            <a href="/terms-and-conditions" className="hover:text-orange-600 transition-colors">Terms & Conditions</a>
           </nav>
           <button
             onClick={() => {
