@@ -16,7 +16,7 @@ interface Appointment {
   date?: string;
   timeSlot?: string;
   txnId?: string;
-  appointmentType?: string; // NEW: Added to show VIP or Normal
+  appointmentType?: string;
 }
 
 const getLocalToday = () => {
@@ -34,9 +34,8 @@ export default function AppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   
-  // NEW: State for both prices
-  const [standardPrice, setStandardPrice] = useState('500');
-  const [vipPrice, setVipPrice] = useState('1000');
+  // Single shared price state for both types as requested
+  const [price, setPrice] = useState('500');
   
   const [isSavingPrice, setIsSavingPrice] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
@@ -58,10 +57,8 @@ export default function AppointmentsPage() {
       if (appts.success) setAppointments(appts.data); 
       if (usr.success) setUsers(usr.data);
       
-      // NEW: Update config handling for both prices
       if (config.success && config.data) {
-          setStandardPrice(config.data.standardPrice?.toString() || '500');
-          setVipPrice(config.data.vipPrice?.toString() || '1000');
+          setPrice(config.data.price?.toString() || '500');
       }
     } catch (error) { console.error('Error:', error); } finally { setLoading(false); }
   };
@@ -84,17 +81,13 @@ export default function AppointmentsPage() {
     }
   }, [form.date, showModal]);
 
-  // NEW: Updated save handler to send both prices
   const handleUpdatePrices = async () => {
     setIsSavingPrice(true);
     try {
       const response = await fetch(`${API_URL}/api/appointments/config`, { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify({ 
-              standardPrice: Number(standardPrice), 
-              vipPrice: Number(vipPrice) 
-          }) 
+          body: JSON.stringify({ price: Number(price) }) 
       });
       const result = await response.json();
       if (result.success) alert('Appointment pricing updated successfully!');
@@ -146,29 +139,18 @@ export default function AppointmentsPage() {
         </button>
       </div>
 
-      {/* NEW: Updated UI to display and edit both pricing tiers */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 max-w-2xl">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 max-w-xl">
         <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-4">
-          <DollarSign className="w-5 h-5 text-orange-500" /> App Appointment Pricing
+          <DollarSign className="w-5 h-5 text-orange-500" /> General Appointment Pricing
         </h2>
         <div className="flex flex-col sm:flex-row gap-4 items-end">
           <div className="flex-1 w-full">
-            <label className="block text-sm font-bold text-gray-700 mb-1">Standard Price (₹)</label>
-            <p className="text-xs text-gray-500 mb-1">Mon - Wed</p>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Appointment Price (₹)</label>
+            <p className="text-xs text-gray-500 mb-1">Applies to both Standard and VIP slots</p>
             <input 
               type="number" 
-              value={standardPrice} 
-              onChange={e => setStandardPrice(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
-            />
-          </div>
-          <div className="flex-1 w-full">
-            <label className="block text-sm font-bold text-gray-700 mb-1">VIP Price (₹)</label>
-             <p className="text-xs text-gray-500 mb-1">Fri - Sat</p>
-            <input 
-              type="number" 
-              value={vipPrice} 
-              onChange={e => setVipPrice(e.target.value)}
+              value={price} 
+              onChange={e => setPrice(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
             />
           </div>
@@ -237,15 +219,14 @@ export default function AppointmentsPage() {
                          <td className="px-6 py-4 font-medium text-gray-800 whitespace-nowrap">{displayDate}</td>
                          <td className="px-6 py-4 font-bold text-gray-900">{app.user?.name || 'N/A'}</td>
                          <td className="px-6 py-4 text-center">
-                           {/* NEW: Badge for VIP vs Normal */}
-                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${isVip ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                               {isVip ? 'VIP' : 'NORMAL'}
+                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${isVip ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                               {isVip ? 'VIP' : 'STANDARD'}
                             </span>
                          </td>
                          <td className="px-6 py-4 text-gray-500">{app.user?.phone || 'N/A'}</td>
                          <td className="px-6 py-4 text-center">
                             {isAppBooking ? (
-                               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">Yes</span>
+                               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">Yes</span>
                             ) : (
                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600">No</span>
                             )}
@@ -291,7 +272,6 @@ export default function AppointmentsPage() {
                   {users.map(u => <option key={u.id || u._id} value={u.id || u._id}>{u.name}</option>)}
                 </select>
               </div>
-              {/* Optional Title input, defaults via backend based on selected date if empty */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Custom Title (Optional)</label>
                 <input type="text" placeholder="Defaults to standard/VIP if blank" value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all" />

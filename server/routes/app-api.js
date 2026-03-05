@@ -35,22 +35,19 @@ const requireAppAuth = async (req, res, next) => {
 };
 
 /**
- * NEW: App Check Email Route
- * Safely checks if an email exists and if the user has already set a password.
+ * NEW: App Check Phone Route
+ * Safely checks if a phone exists and if the user has already set a password.
  */
-router.post('/check-email', async (req, res) => {
+router.post('/check-phone', async (req, res) => {
   try {
-    const { email } = req.body;
+    const { phone } = req.body;
     
-    // Find user (we use select('+password') if it was hidden at the schema level, 
-    // but your schema just deletes it on toJSON, so findOne is fine here)
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ phone });
     
     if (!user) {
-      return res.status(404).json({ success: false, message: 'Email not registered' });
+      return res.status(404).json({ success: false, message: 'Phone number not registered' });
     }
 
-    // Check if the password field exists and is not empty
     const hasPassword = user.password && user.password.trim() !== '';
 
     res.json({ success: true, userId: user._id, hasPassword });
@@ -75,11 +72,9 @@ router.post('/setup-password', async (req, res) => {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
 
-    // Set the password and save
     user.password = password;
     await user.save();
 
-    // Re-fetch with populated tier to return full login data to the app
     const updatedUser = await User.findById(userId).populate('tier', 'id name monthlyPrice yearlyPrice lifetimePrice');
     
     res.json({ success: true, data: updatedUser });
@@ -93,9 +88,9 @@ router.post('/setup-password', async (req, res) => {
  */
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { phone, password } = req.body;
     
-    const user = await User.findOne({ email }).populate('tier', 'id name monthlyPrice yearlyPrice lifetimePrice');
+    const user = await User.findOne({ phone }).populate('tier', 'id name monthlyPrice yearlyPrice lifetimePrice');
     
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
@@ -106,6 +101,24 @@ router.post('/login', async (req, res) => {
     }
 
     res.json({ success: true, data: user });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * NEW: Guest User Registration for Appointments
+ */
+router.post('/guest-user', async (req, res) => {
+  try {
+    const { name, phone } = req.body;
+    if (!name || !phone) return res.status(400).json({ success: false, message: 'Name and phone required' });
+
+    let user = await User.findOne({ phone });
+    if (!user) {
+      user = await User.create({ name, phone });
+    }
+    res.json({ success: true, userId: user._id });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

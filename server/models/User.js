@@ -2,9 +2,9 @@ import mongoose from 'mongoose';
 
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, default: null }, // Added for password setup logic
-  phone: { type: String, default: '' },
+  email: { type: String, default: null }, // Made nullable/optional
+  password: { type: String, default: null }, 
+  phone: { type: String, required: true, unique: true }, // Set as primary and required
   role: { type: String, enum: ['student', 'admin', 'instructor'], default: 'student' },
   tier: { type: mongoose.Schema.Types.ObjectId, ref: 'Tier', default: null },
   billingCycle: { type: String, enum: ['monthly', 'yearly', 'lifetime'], default: 'monthly' },

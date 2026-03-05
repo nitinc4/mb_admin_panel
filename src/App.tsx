@@ -7,7 +7,6 @@ import LiveClassesPage from './pages/LiveClassesPage';
 import AppointmentsPage from './pages/AppointmentsPage';
 import BillingPage from './pages/BillingPage';
 import NotificationsPage from './pages/NotificationsPage';
-import MessagesPage from './pages/MessagesPage'; 
 import SettingsPage from './pages/SettingsPage';
 import AttendancePage from './pages/AttendancePage'; 
 import LoginPage from './pages/LoginPage';
@@ -30,7 +29,6 @@ function AppContent() {
       case 'appointments': return <AppointmentsPage />;
       case 'billing': return <BillingPage />;
       case 'notifications': return <NotificationsPage />;
-      case 'messages': return <MessagesPage />; 
       case 'services': return <SettingsPage />;
       case 'attendance': return <AttendancePage />; 
       case 'profile': return <ProfilePage />;

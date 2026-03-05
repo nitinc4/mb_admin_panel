@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -7,32 +8,66 @@ import {
   DollarSign,
   Settings,
   Bell,
-  MessageSquare,
   UserCheck
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { API_URL } from '../config';
 
 interface NavItem {
   id: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  hasNotification?: boolean;
 }
-
-const navItems: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'users', label: 'Users & Tiers', icon: Users },
-  { id: 'batches', label: 'Batches & Content', icon: FolderOpen },
-  { id: 'live-classes', label: 'Live Classes', icon: Video },
-  { id: 'attendance', label: 'Attendance', icon: UserCheck },
-  { id: 'appointments', label: 'Appointments', icon: Calendar },
-  { id: 'billing', label: 'Billing', icon: DollarSign },
-  { id: 'messages', label: 'Messages', icon: MessageSquare }, 
-  { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'services', label: 'Services', icon: Settings }, 
-];
 
 export default function Sidebar() {
   const { activeTab, setActiveTab, adminUser, logout } = useApp();
+  const [hasNewAppointments, setHasNewAppointments] = useState(false);
+  const [lastAppointmentCount, setLastAppointmentCount] = useState(0);
+
+  // Polling to simulate instant refresh and trigger red dot notification
+  useEffect(() => {
+    const checkNewAppointments = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        
+        const response = await fetch(`${API_URL}/appointments`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        
+        const currentCount = data.length || 0;
+        
+        // If we have previously fetched and the count went up, show dot
+        if (lastAppointmentCount !== 0 && currentCount > lastAppointmentCount) {
+          setHasNewAppointments(true);
+        }
+        setLastAppointmentCount(currentCount);
+      } catch (error) {
+        console.error("Failed to fetch appointments for notification check", error);
+      }
+    };
+
+    // Initial check
+    checkNewAppointments();
+
+    // Poll every 15 seconds
+    const interval = setInterval(checkNewAppointments, 15000);
+    return () => clearInterval(interval);
+  }, [lastAppointmentCount]);
+
+  const navItems: NavItem[] = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'users', label: 'Users & Tiers', icon: Users },
+    { id: 'batches', label: 'Batches & Content', icon: FolderOpen },
+    { id: 'live-classes', label: 'Live Classes', icon: Video },
+    { id: 'attendance', label: 'Attendance', icon: UserCheck },
+    { id: 'appointments', label: 'Appointments', icon: Calendar, hasNotification: hasNewAppointments },
+    { id: 'billing', label: 'Billing', icon: DollarSign },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'services', label: 'Services', icon: Settings }, 
+  ];
 
   return (
     <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-full">
@@ -50,15 +85,26 @@ export default function Sidebar() {
             return (
               <li key={item.id}>
                 <button
-                  onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    // Clear the notification dot when clicked
+                    if (item.id === 'appointments') {
+                      setHasNewAppointments(false);
+                    }
+                  }}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
                     isActive
                       ? 'bg-blue-50 text-blue-600'
                       : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
-                  <Icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
+                  <div className="flex items-center gap-3">
+                    <Icon className="w-5 h-5" />
+                    <span className="font-medium">{item.label}</span>
+                  </div>
+                  {item.hasNotification && (
+                    <span className="w-2.5 h-2.5 bg-red-500 rounded-full"></span>
+                  )}
                 </button>
               </li>
             );
@@ -78,7 +124,7 @@ export default function Sidebar() {
           </div>
           <div className="flex-1 overflow-hidden">
             <p className="text-sm font-medium text-gray-800 truncate">{adminUser?.name || 'Admin User'}</p>
-            <p className="text-xs text-gray-500 truncate">{adminUser?.email || 'admin@example.com'}</p>
+            <p className="text-xs text-gray-500 truncate">{adminUser?.phone || adminUser?.email || 'Admin'}</p>
           </div>
         </div>
         <button
