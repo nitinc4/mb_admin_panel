@@ -3,7 +3,6 @@ import { Plus, X, DollarSign, Trash2 } from 'lucide-react';
 import { useApp } from '../context/AppContext'; 
 import { API_URL } from '../config';
 
-// ... (KEEP INTERFACES AND HELPER FUNCTIONS THE SAME) ...
 interface User { id?: string; _id?: string; email: string; name: string; phone?: string; }
 interface Appointment { 
   id: string; 
@@ -17,6 +16,7 @@ interface Appointment {
   date?: string;
   timeSlot?: string;
   txnId?: string;
+  appointmentType?: string; // NEW: Added to show VIP or Normal
 }
 
 const getLocalToday = () => {
@@ -33,19 +33,21 @@ export default function AppointmentsPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [price, setPrice] = useState('500');
+  
+  // NEW: State for both prices
+  const [standardPrice, setStandardPrice] = useState('500');
+  const [vipPrice, setVipPrice] = useState('1000');
+  
   const [isSavingPrice, setIsSavingPrice] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
 
-  // NEW TAB STATE
   const [activeStatus, setActiveStatus] = useState('pending');
 
   const [form, setForm] = useState({ 
     user_id: '', title: '', date: getLocalToday(), timeSlot: '', notes: '' 
   });
 
-  // ... (KEEP FETCH AND LOGIC FUNCTIONS EXACTLY THE SAME) ...
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -55,7 +57,12 @@ export default function AppointmentsPage() {
       const appts = await apptsRes.json(); const usr = await usrRes.json(); const config = await configRes.json();
       if (appts.success) setAppointments(appts.data); 
       if (usr.success) setUsers(usr.data);
-      if (config.success && config.data) setPrice(config.data.price.toString());
+      
+      // NEW: Update config handling for both prices
+      if (config.success && config.data) {
+          setStandardPrice(config.data.standardPrice?.toString() || '500');
+          setVipPrice(config.data.vipPrice?.toString() || '1000');
+      }
     } catch (error) { console.error('Error:', error); } finally { setLoading(false); }
   };
 
@@ -77,18 +84,26 @@ export default function AppointmentsPage() {
     }
   }, [form.date, showModal]);
 
-  const handleUpdatePrice = async () => {
+  // NEW: Updated save handler to send both prices
+  const handleUpdatePrices = async () => {
     setIsSavingPrice(true);
     try {
-      const response = await fetch(`${API_URL}/api/appointments/config`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ price: Number(price) }) });
+      const response = await fetch(`${API_URL}/api/appointments/config`, { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ 
+              standardPrice: Number(standardPrice), 
+              vipPrice: Number(vipPrice) 
+          }) 
+      });
       const result = await response.json();
-      if (result.success) alert('Standard price updated successfully!');
-      else alert('Failed to update price');
+      if (result.success) alert('Appointment pricing updated successfully!');
+      else alert('Failed to update pricing');
     } catch (e) { console.error(e); alert('Error updating price configuration'); } finally { setIsSavingPrice(false); }
   };
 
   const handleCreateAppointment = async () => {
-    if (!form.user_id || !form.title || !form.timeSlot) return alert('User, Title, and Time Slot are required.');
+    if (!form.user_id || !form.timeSlot) return alert('User and Time Slot are required.');
     try {
       const response = await fetch(`${API_URL}/api/appointments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
       const result = await response.json();
@@ -131,31 +146,42 @@ export default function AppointmentsPage() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 max-w-xl">
+      {/* NEW: Updated UI to display and edit both pricing tiers */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 max-w-2xl">
         <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-4">
-          <DollarSign className="w-5 h-5 text-orange-500" /> Standard App Appointment Price
+          <DollarSign className="w-5 h-5 text-orange-500" /> App Appointment Pricing
         </h2>
-        <div className="flex gap-4 items-end">
-          <div className="flex-1">
-            <label className="block text-sm font-bold text-gray-700 mb-1">Price (₹)</label>
+        <div className="flex flex-col sm:flex-row gap-4 items-end">
+          <div className="flex-1 w-full">
+            <label className="block text-sm font-bold text-gray-700 mb-1">Standard Price (₹)</label>
+            <p className="text-xs text-gray-500 mb-1">Mon - Wed</p>
             <input 
               type="number" 
-              value={price} 
-              onChange={e => setPrice(e.target.value)}
+              value={standardPrice} 
+              onChange={e => setStandardPrice(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+            />
+          </div>
+          <div className="flex-1 w-full">
+            <label className="block text-sm font-bold text-gray-700 mb-1">VIP Price (₹)</label>
+             <p className="text-xs text-gray-500 mb-1">Fri - Sat</p>
+            <input 
+              type="number" 
+              value={vipPrice} 
+              onChange={e => setVipPrice(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
             />
           </div>
           <button 
-            onClick={handleUpdatePrice} disabled={isSavingPrice}
-            className="px-6 py-2 bg-primary text-white font-bold rounded-lg hover:bg-orange-600 transition-colors"
+            onClick={handleUpdatePrices} disabled={isSavingPrice}
+            className="w-full sm:w-auto px-6 py-2 bg-primary text-white font-bold rounded-lg hover:bg-orange-600 transition-colors h-10"
           >
-            {isSavingPrice ? 'Saving...' : 'Update Price'}
+            {isSavingPrice ? 'Saving...' : 'Update Pricing'}
           </button>
         </div>
       </div>
 
-      {/* NEW TABS UI */}
-      <div className="flex gap-2 border-b border-gray-200 mb-6 overflow-x-auto">
+      <div className="flex gap-2 border-b border-gray-200 mb-6 overflow-x-auto pb-2">
         {statuses.map(s => {
           const count = appointments.filter(a => a.status === s).length;
           return (
@@ -181,8 +207,8 @@ export default function AppointmentsPage() {
                   <tr>
                      <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Date / Time</th>
                      <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Username</th>
-                     <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Email</th>
-                     <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Phone Number</th>
+                     <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-center">Type</th>
+                     <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Phone</th>
                      <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-center">From App</th>
                      <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-right">Actions</th>
                   </tr>
@@ -204,12 +230,18 @@ export default function AppointmentsPage() {
                     }
 
                     const isAppBooking = !!app.txnId || !!app.timeSlot;
+                    const isVip = app.appointmentType === 'vip';
 
                     return (
                       <tr key={safeId} className="hover:bg-orange-50/20 transition-colors">
                          <td className="px-6 py-4 font-medium text-gray-800 whitespace-nowrap">{displayDate}</td>
                          <td className="px-6 py-4 font-bold text-gray-900">{app.user?.name || 'N/A'}</td>
-                         <td className="px-6 py-4 text-gray-500">{app.user?.email || 'N/A'}</td>
+                         <td className="px-6 py-4 text-center">
+                           {/* NEW: Badge for VIP vs Normal */}
+                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${isVip ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                               {isVip ? 'VIP' : 'NORMAL'}
+                            </span>
+                         </td>
                          <td className="px-6 py-4 text-gray-500">{app.user?.phone || 'N/A'}</td>
                          <td className="px-6 py-4 text-center">
                             {isAppBooking ? (
@@ -243,7 +275,6 @@ export default function AppointmentsPage() {
         </div>
       </div>
 
-      {/* ... (KEEP MODAL HTML EXACTLY THE SAME) ... */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
@@ -260,9 +291,10 @@ export default function AppointmentsPage() {
                   {users.map(u => <option key={u.id || u._id} value={u.id || u._id}>{u.name}</option>)}
                 </select>
               </div>
+              {/* Optional Title input, defaults via backend based on selected date if empty */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Appointment Title *</label>
-                <input type="text" placeholder="e.g. Health Consultation" value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all" required />
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Custom Title (Optional)</label>
+                <input type="text" placeholder="Defaults to standard/VIP if blank" value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
