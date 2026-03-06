@@ -9,6 +9,7 @@ import {
   Settings,
   Bell,
   UserCheck,
+  Cloud,
   X // Added X icon for closing
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -68,6 +69,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     { id: 'attendance', label: 'Attendance', icon: UserCheck },
     { id: 'appointments', label: 'Appointments', icon: Calendar, hasNotification: hasNewAppointments },
     { id: 'billing', label: 'Billing', icon: DollarSign },
+    { id: 'drive', label: 'Drive', icon: Cloud },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'services', label: 'Services', icon: Settings }, 
   ];

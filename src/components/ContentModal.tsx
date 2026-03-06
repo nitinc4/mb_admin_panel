@@ -33,6 +33,7 @@ export default function ContentModal({ content, batchId, onClose, onSave }: Cont
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isExtractingDuration, setIsExtractingDuration] = useState(false); // NEW STATE
 
   useEffect(() => {
     if (content) {
@@ -46,6 +47,52 @@ export default function ContentModal({ content, batchId, onClose, onSave }: Cont
     }
   }, [content]);
 
+  // NEW HELPER FUNCTION: Extracts duration from video file
+  const extractVideoDuration = (file: File): Promise<number> => {
+    return new Promise((resolve, reject) => {
+      try {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+
+        video.onloadedmetadata = function () {
+          window.URL.revokeObjectURL(video.src); // Clean up memory
+          resolve(Math.round(video.duration)); // Return rounded seconds
+        };
+
+        video.onerror = function () {
+          window.URL.revokeObjectURL(video.src);
+          reject(new Error("Failed to load video metadata"));
+        };
+
+        video.src = URL.createObjectURL(file);
+      } catch (e) {
+        reject(e);
+      }
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      setError(null);
+
+      // Automatically fetch duration if it's a video
+      if (formData.content_type === 'video' && file.type.startsWith('video/')) {
+        setIsExtractingDuration(true);
+        try {
+          const durationInSeconds = await extractVideoDuration(file);
+          setFormData((prev) => ({ ...prev, duration: durationInSeconds }));
+        } catch (err) {
+          console.error("Could not extract video duration:", err);
+          // Don't block the user, just let them enter it manually if extraction fails
+        } finally {
+          setIsExtractingDuration(false);
+        }
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -55,7 +102,6 @@ export default function ContentModal({ content, batchId, onClose, onSave }: Cont
       let finalFileUrl = content?.fileUrl || '';
       let finalFileSize = content?.fileSize || 0;
 
-      // 1. Upload file to S3 if a new file is selected
       if (selectedFile) {
         setUploadStatus('Uploading media to S3...');
         const uploadData = new FormData();
@@ -75,11 +121,9 @@ export default function ContentModal({ content, batchId, onClose, onSave }: Cont
         finalFileUrl = uploadResult.url;
         finalFileSize = selectedFile.size;
       } else if (!content) {
-        // If creating new content without a file
         throw new Error('Please select a file to upload.');
       }
 
-      // 2. Save Content Item to Database
       setUploadStatus('Saving content details...');
       const url = content
         ? `${API_URL}/api/content/${content.id}`
@@ -95,7 +139,7 @@ export default function ContentModal({ content, batchId, onClose, onSave }: Cont
           content_type: formData.content_type,
           duration: formData.duration,
           is_published: formData.is_published,
-          file_url: finalFileUrl, // Use the real S3 URL
+          file_url: finalFileUrl,
           file_size: finalFileSize
         }),
       });
@@ -117,6 +161,7 @@ export default function ContentModal({ content, batchId, onClose, onSave }: Cont
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        {/* ... Header and Content Type selection remain identical ... */}
         <div className="sticky top-0 bg-white flex items-center justify-between p-6 border-b border-gray-200 z-10">
           <h2 className="text-xl font-bold text-gray-800">
             {content ? 'Edit Content' : 'Add New Content'}
@@ -185,6 +230,7 @@ export default function ContentModal({ content, batchId, onClose, onSave }: Cont
             />
           </div>
 
+          {/* UPLOAD AREA */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Upload File (Amazon S3)</label>
             <label className={`block border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isSubmitting ? 'border-gray-300 bg-gray-50 opacity-50 cursor-not-allowed' : 'border-gray-300 hover:border-blue-500 cursor-pointer'}`}>
@@ -210,27 +256,27 @@ export default function ContentModal({ content, batchId, onClose, onSave }: Cont
                 accept={formData.content_type === 'video' ? 'video/*' : 'application/pdf'}
                 className="hidden"
                 disabled={isSubmitting}
-                onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    setSelectedFile(e.target.files[0]);
-                    setError(null);
-                  }
-                }}
+                onChange={handleFileChange}  // <--- USING THE NEW HANDLER HERE
               />
             </label>
           </div>
 
+          {/* DURATION INPUT */}
           {formData.content_type === 'video' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Duration (seconds)</label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-sm font-medium text-gray-700">Duration (seconds)</label>
+                {isExtractingDuration && <span className="text-xs text-indigo-600 animate-pulse">Extracting duration...</span>}
+              </div>
               <input
                 type="number"
                 value={formData.duration}
-                onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 0 })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 min="0"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isExtractingDuration}
               />
+              <p className="text-xs text-gray-500 mt-1">This will be auto-filled when you select a video, but you can edit it.</p>
             </div>
           )}
 

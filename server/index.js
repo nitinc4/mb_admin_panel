@@ -29,6 +29,7 @@ import Admin from './models/Admin.js';
 import Batch from './models/Batch.js'; // NEW IMPORT
 import { notifyUsers, getUsersForBatch } from './utils/firebase-notifications.js'; // NEW IMPORT
 import uploadRoutes from './routes/upload.js';
+import driveRoutes from './routes/drive.js'; // NEW IMPORT
 
 dotenv.config();
 
@@ -81,6 +82,7 @@ app.use('/api/messages', messagesRoutes);
 app.use('/api/attendance', attendanceRoutes); 
 app.use('/api/auth', authRoutes); 
 app.use('/api/upload', uploadRoutes);
+app.use('/api/drive', driveRoutes); // NEW ROUTE
 
 startPaymentCheckCron();
 startNotificationCron();

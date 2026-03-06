@@ -29,7 +29,7 @@ const upload = multer({
     },
   }),
   limits: {
-    fileSize: 500 * 1024 * 1024, // CHANGED: Increased limit to 500MB (500 * 1024 * 1024 bytes)
+   fileSize: 2 * 1024 * 1024 * 1024, // CHANGED: Increased limit to 2GB (2 * 1024 * 1024 * 1024 bytes)
   },
 });
 

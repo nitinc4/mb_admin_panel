@@ -11,7 +11,7 @@ import SettingsPage from './pages/SettingsPage';
 import AttendancePage from './pages/AttendancePage'; 
 import LoginPage from './pages/LoginPage';
 import ProfilePage from './pages/ProfilePage';
-
+import DrivePage from './pages/DrivePage';
 import AboutPage from './pages/AboutPage';
 import PrivacyPage from './pages/PrivacyPage';
 import CancellationPage from './pages/CancellationPage';
@@ -28,6 +28,7 @@ function AppContent() {
       case 'live-classes': return <LiveClassesPage />;
       case 'appointments': return <AppointmentsPage />;
       case 'billing': return <BillingPage />;
+      case 'drive': return <DrivePage />;
       case 'notifications': return <NotificationsPage />;
       case 'services': return <SettingsPage />;
       case 'attendance': return <AttendancePage />; 
