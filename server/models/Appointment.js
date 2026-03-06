@@ -1,7 +1,8 @@
 import mongoose from 'mongoose';
 
 const appointmentSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  guestUser: { type: mongoose.Schema.Types.ObjectId, ref: 'GuestUser' },
   title: { type: String, default: 'Consultation' },
   appointmentType: { type: String, enum: ['normal', 'vip'], default: 'normal' },
   

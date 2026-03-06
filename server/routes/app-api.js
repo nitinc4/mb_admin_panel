@@ -1,5 +1,6 @@
 import express from 'express';
 import User from '../models/User.js';
+import GuestUser from '../models/GuestUser.js'; // NEW IMPORT
 import Payment from '../models/Payment.js';
 import Tier from '../models/Tier.js';
 
@@ -35,21 +36,16 @@ const requireAppAuth = async (req, res, next) => {
 };
 
 /**
- * NEW: App Check Phone Route
- * Safely checks if a phone exists and if the user has already set a password.
+ * App Check Email Route
  */
-router.post('/check-phone', async (req, res) => {
+router.post('/check-email', async (req, res) => {
   try {
-    const { phone } = req.body;
-    
-    const user = await User.findOne({ phone });
-    
+    const { email } = req.body;
+    const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ success: false, message: 'Phone number not registered' });
+      return res.status(404).json({ success: false, message: 'Email not registered' });
     }
-
     const hasPassword = user.password && user.password.trim() !== '';
-
     res.json({ success: true, userId: user._id, hasPassword });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -57,16 +53,14 @@ router.post('/check-phone', async (req, res) => {
 });
 
 /**
- * NEW: First-time Password Setup Route
+ * First-time Password Setup Route
  */
 router.post('/setup-password', async (req, res) => {
   try {
     const { userId, password } = req.body;
-    
     if (!password) {
       return res.status(400).json({ success: false, error: 'Password is required' });
     }
-
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
@@ -74,7 +68,6 @@ router.post('/setup-password', async (req, res) => {
 
     user.password = password;
     await user.save();
-
     const updatedUser = await User.findById(userId).populate('tier', 'id name monthlyPrice yearlyPrice lifetimePrice');
     
     res.json({ success: true, data: updatedUser });
@@ -84,22 +77,19 @@ router.post('/setup-password', async (req, res) => {
 });
 
 /**
- * 0. App Login Route (UNPROTECTED)
+ * App Login Route (UNPROTECTED)
  */
 router.post('/login', async (req, res) => {
   try {
-    const { phone, password } = req.body;
-    
-    const user = await User.findOne({ phone }).populate('tier', 'id name monthlyPrice yearlyPrice lifetimePrice');
+    const { email, password } = req.body;
+    const user = await User.findOne({ email }).populate('tier', 'id name monthlyPrice yearlyPrice lifetimePrice');
     
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
-
     if (user.password !== password) {
       return res.status(401).json({ success: false, error: 'Invalid password' });
     }
-
     res.json({ success: true, data: user });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -107,25 +97,25 @@ router.post('/login', async (req, res) => {
 });
 
 /**
- * NEW: Guest User Registration for Appointments
+ * UPDATED: Guest User Registration (Uses new GuestUser model)
  */
 router.post('/guest-user', async (req, res) => {
   try {
     const { name, phone } = req.body;
     if (!name || !phone) return res.status(400).json({ success: false, message: 'Name and phone required' });
 
-    let user = await User.findOne({ phone });
-    if (!user) {
-      user = await User.create({ name, phone });
+    let guest = await GuestUser.findOne({ phone });
+    if (!guest) {
+      guest = await GuestUser.create({ name, phone });
     }
-    res.json({ success: true, userId: user._id });
+    res.json({ success: true, userId: guest._id });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 /**
- * 1. Fetch User Data (Protected Route)
+ * Fetch User Data (Protected Route)
  */
 router.get('/my-profile', requireAppAuth, async (req, res) => {
   try {
@@ -137,7 +127,7 @@ router.get('/my-profile', requireAppAuth, async (req, res) => {
 });
 
 /**
- * 2. Fetch Pending Dues (UNPROTECTED)
+ * Fetch Pending Dues
  */
 router.get('/my-dues/:userId', async (req, res) => {
   try {
@@ -149,7 +139,7 @@ router.get('/my-dues/:userId', async (req, res) => {
 });
 
 /**
- * 3. Process Payment from the Mobile App
+ * Process Payment from the Mobile App
  */
 router.post('/process-payment', async (req, res) => {
   try {
@@ -164,11 +154,11 @@ router.post('/process-payment', async (req, res) => {
     payment.paymentType = payment_type || 'online';
     await payment.save();
 
-    if (payment.user.isBlocked) {
+    if (payment.user && payment.user.isBlocked) {
       await User.findByIdAndUpdate(user_id, { isBlocked: false });
     }
 
-    if (payment.reason.startsWith('Subscription -') && payment.user.tier) {
+    if (payment.reason.startsWith('Subscription -') && payment.user && payment.user.tier) {
       const userCycle = payment.user.billingCycle;
       
       if (userCycle !== 'lifetime') {

@@ -1,7 +1,8 @@
 import mongoose from 'mongoose';
 
 const paymentSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  guestUser: { type: mongoose.Schema.Types.ObjectId, ref: 'GuestUser' },
   amount: { type: Number, required: true },
   paymentType: { type: String, default: 'cash' }, // cash, upi, card, bank_transfer
   reason: { type: String, required: true }, // e.g., 'Monthly Tier', 'Appointment'

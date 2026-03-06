@@ -3,11 +3,12 @@ import { Plus, X, DollarSign, Trash2 } from 'lucide-react';
 import { useApp } from '../context/AppContext'; 
 import { API_URL } from '../config';
 
-interface User { id?: string; _id?: string; email: string; name: string; phone?: string; }
+interface User { id?: string; _id?: string; email?: string; name: string; phone?: string; }
 interface Appointment { 
   id: string; 
   _id?: string;
-  user: User; 
+  user?: User; 
+  guestUser?: User; 
   title?: string; 
   cost?: number; 
   scheduledAt?: string; 
@@ -34,7 +35,6 @@ export default function AppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   
-  // Separate Pricing States
   const [standardPrice, setStandardPrice] = useState('500');
   const [vipPrice, setVipPrice] = useState('1000');
   
@@ -67,7 +67,6 @@ export default function AppointmentsPage() {
   useEffect(() => { 
       fetchData(); 
       
-      // Auto-refresh appointments list every 10 seconds silently
       const interval = setInterval(() => {
           fetch(`${API_URL}/api/appointments`)
             .then(res => res.json())
@@ -243,17 +242,25 @@ export default function AppointmentsPage() {
 
                     const isAppBooking = !!app.txnId || !!app.timeSlot;
                     const isVip = app.appointmentType === 'vip';
+                    
+                    // Conditionally check if the booking came from the GuestUser table
+                    const displayName = app.user?.name || app.guestUser?.name || 'N/A';
+                    const displayPhone = app.user?.phone || app.guestUser?.phone || 'N/A';
+                    const isGuest = !app.user && !!app.guestUser;
 
                     return (
                       <tr key={safeId} className="hover:bg-orange-50/20 transition-colors">
                          <td className="px-6 py-4 font-medium text-gray-800 whitespace-nowrap">{displayDate}</td>
-                         <td className="px-6 py-4 font-bold text-gray-900">{app.user?.name || 'N/A'}</td>
+                         <td className="px-6 py-4 font-bold text-gray-900">
+                             {displayName}
+                             {isGuest && <span className="ml-2 text-xs text-gray-400 font-normal bg-gray-100 px-2 py-0.5 rounded-full">(Guest)</span>}
+                         </td>
                          <td className="px-6 py-4 text-center">
                             <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${isVip ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>
                                {isVip ? 'VIP' : 'NORMAL'}
                             </span>
                          </td>
-                         <td className="px-6 py-4 text-gray-500">{app.user?.phone || 'N/A'}</td>
+                         <td className="px-6 py-4 text-gray-500">{displayPhone}</td>
                          <td className="px-6 py-4 text-center">
                             {isAppBooking ? (
                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">Yes</span>

@@ -2,6 +2,7 @@ import express from 'express';
 import Appointment from '../models/Appointment.js';
 import AppointmentConfig from '../models/AppointmentConfig.js';
 import Payment from '../models/Payment.js';
+import User from '../models/User.js'; // Needed to verify the account type
 
 const router = express.Router();
 
@@ -74,11 +75,13 @@ router.get('/available-slots', async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// App: Book appointment
+// App: Book appointment (Legacy)
 router.post('/book', async (req, res) => {
   try {
     const { userId, date, timeSlot, amount, txnId } = req.body;
     if (!userId || !date || !timeSlot) return res.status(400).json({ success: false, message: 'Missing fields' });
+
+    const isRealUser = await User.findById(userId); // NEW: Check user type
 
     const [year, month, day] = date.split('-').map(Number);
     const appointmentDate = new Date(year, month - 1, day, 0, 0, 0, 0);
@@ -98,8 +101,7 @@ router.post('/book', async (req, res) => {
         if (existing) return res.status(400).json({ success: false, message: 'Slot was just booked by someone else.' });
     }
 
-    const newAppointment = await Appointment.create({
-      user: userId,
+    const apptData = {
       title: appType === 'vip' ? 'VIP Consultation' : 'Standard Consultation',
       appointmentType: appType,
       date: appointmentDate,
@@ -111,10 +113,12 @@ router.post('/book', async (req, res) => {
       txnId: txnId || `TXN_${Date.now()}`,
       paymentStatus: 'paid',
       status: 'pending'
-    });
+    };
+    if (isRealUser) apptData.user = userId; else apptData.guestUser = userId;
 
-    await Payment.create({
-      user: userId, 
+    const newAppointment = await Appointment.create(apptData);
+
+    const paymentData = {
       amount: amount,
       paymentType: 'online',
       reason: `Appointment - From app - ${timeSlot}`,
@@ -123,7 +127,10 @@ router.post('/book', async (req, res) => {
       status: 'paid',
       referenceId: txnId || `TXN_${Date.now()}`,
       appointment: newAppointment._id
-    });
+    };
+    if (isRealUser) paymentData.user = userId; else paymentData.guestUser = userId;
+    
+    await Payment.create(paymentData);
 
     res.json({ success: true, data: newAppointment });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
@@ -132,17 +139,21 @@ router.post('/book', async (req, res) => {
 // Admin: GET ALL
 router.get('/', async (req, res) => {
   try {
-    const appointments = await Appointment.find().populate('user', 'name email phone').sort({ date: -1, scheduledAt: -1 });
+    const appointments = await Appointment.find()
+      .populate('user', 'name email phone')
+      .populate('guestUser', 'name phone') // Added population for guests
+      .sort({ date: -1, scheduledAt: -1 });
     res.json({ success: true, data: appointments });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// Admin: POST Manual Appointment
+// Admin: POST Manual Appointment / App Book Appointment
 router.post('/', async (req, res) => {
   try {
     const { user_id, title, date, timeSlot, notes } = req.body;
     if (!user_id || !title || !date || !timeSlot) return res.status(400).json({ success: false, message: 'Missing fields' });
     
+    const isRealUser = await User.findById(user_id); // NEW: Check user type
     let config = await AppointmentConfig.findOne({ key: 'appointment_pricing' });
     
     const [year, month, day] = date.split('-').map(Number);
@@ -168,8 +179,7 @@ router.post('/', async (req, res) => {
         if (existing) return res.status(400).json({ success: false, message: 'This time slot is already booked.' });
     }
 
-    const appointment = await Appointment.create({
-      user: user_id,
+    const apptData = {
       title,
       appointmentType: appType,
       date: appointmentDate,
@@ -180,19 +190,27 @@ router.post('/', async (req, res) => {
       paymentAmount: cost,
       notes,
       status: 'pending'
-    });
+    };
+    if (isRealUser) apptData.user = user_id; else apptData.guestUser = user_id;
 
-    await Payment.create({
-      user: user_id,
+    const appointment = await Appointment.create(apptData);
+
+    const paymentData = {
       amount: cost,
       paymentType: 'cash',
-      reason: `Appointment - Admin Booking - ${timeSlot}`,
+      reason: `Appointment - ${timeSlot}`,
       dueDate: appointmentDate,
       status: 'upcoming',
       appointment: appointment._id
-    });
+    };
+    if (isRealUser) paymentData.user = user_id; else paymentData.guestUser = user_id;
 
-    const populated = await Appointment.findById(appointment._id).populate('user', 'name email phone');
+    await Payment.create(paymentData);
+
+    const populated = await Appointment.findById(appointment._id)
+       .populate('user', 'name email phone')
+       .populate('guestUser', 'name phone');
+       
     res.json({ success: true, data: populated });
   } catch (error) { 
     console.error("Manual Booking Error: ", error);
@@ -204,9 +222,10 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { status } = req.body;
-    const appointment = await Appointment.findByIdAndUpdate(req.params.id, { status }, { new: true }).populate('user', 'name email phone');
+    const appointment = await Appointment.findByIdAndUpdate(req.params.id, { status }, { new: true })
+      .populate('user', 'name email phone')
+      .populate('guestUser', 'name phone');
     
-    // NEW: Automatically delete the associated payment if the appointment is cancelled
     if (status === 'cancelled') {
        await Payment.findOneAndDelete({ appointment: req.params.id });
     }

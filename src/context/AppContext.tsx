@@ -14,7 +14,11 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // Initialize from localStorage if available, fallback to dashboard
+  const [activeTab, setActiveTabState] = useState(() => {
+    return localStorage.getItem('adminActiveTab') || 'dashboard';
+  });
+  
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentView, setCurrentView] = useState<'landing' | 'login' | 'admin'>('landing');
   const [adminUser, setAdminUser] = useState<any>(null);
@@ -47,8 +51,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAdminUser(null);
     localStorage.removeItem('isAdminAuth');
     localStorage.removeItem('adminUser');
+    localStorage.removeItem('adminActiveTab');
     sessionStorage.removeItem('isAdminAuth');
     sessionStorage.removeItem('adminUser');
+  };
+
+  // Custom setter to update state AND local storage seamlessly
+  const setActiveTab = (tab: string) => {
+    setActiveTabState(tab);
+    localStorage.setItem('adminActiveTab', tab);
   };
 
   return (
