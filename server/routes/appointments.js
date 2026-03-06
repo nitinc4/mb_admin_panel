@@ -196,6 +196,7 @@ router.post('/', async (req, res) => {
     const appointment = await Appointment.create(apptData);
 
     const paymentData = {
+      user: user_id,
       amount: cost,
       paymentType: 'cash',
       reason: `Appointment - ${timeSlot}`,
