@@ -6,10 +6,7 @@ import Payment from '../models/Payment.js';
 const router = express.Router();
 
 const generateSlots = (dayIndex) => {
-  // 1: Mon, 2: Tue, 3: Wed -> Standard
   if (dayIndex >= 1 && dayIndex <= 3) return ["Standard Booking"];
-  
-  // 5: Fri, 6: Sat -> VIP 
   if (dayIndex === 5 || dayIndex === 6) return [
     "10:00 AM - 10:30 AM", "10:30 AM - 11:00 AM", 
     "11:00 AM - 11:30 AM", "11:30 AM - 12:00 PM", 
@@ -17,16 +14,14 @@ const generateSlots = (dayIndex) => {
     "01:00 PM - 01:30 PM", "01:30 PM - 02:00 PM", 
     "02:00 PM - 02:30 PM", "02:30 PM - 03:00 PM"
   ];
-
-  // 0: Sunday, 4: Thursday -> Closed
   return [];
 };
 
 // Admin & App: Get config
 router.get('/config', async (req, res) => {
   try {
-    let config = await AppointmentConfig.findOne({ key: 'standard_price' });
-    if (!config) config = await AppointmentConfig.create({ key: 'standard_price', price: 500 });
+    let config = await AppointmentConfig.findOne({ key: 'appointment_pricing' });
+    if (!config) config = await AppointmentConfig.create({ key: 'appointment_pricing', standardPrice: 500, vipPrice: 1000 });
     res.json({ success: true, data: config });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
@@ -34,9 +29,11 @@ router.get('/config', async (req, res) => {
 // Admin: Update config
 router.post('/config', async (req, res) => {
   try {
-    const { price } = req.body;
+    const { standardPrice, vipPrice } = req.body;
     const config = await AppointmentConfig.findOneAndUpdate(
-      { key: 'standard_price' }, { price: Number(price) }, { upsert: true, new: true }
+      { key: 'appointment_pricing' }, 
+      { standardPrice: Number(standardPrice), vipPrice: Number(vipPrice) }, 
+      { upsert: true, new: true }
     );
     res.json({ success: true, data: config });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
@@ -48,7 +45,6 @@ router.get('/available-slots', async (req, res) => {
     const { date } = req.query; 
     if (!date) return res.status(400).json({ success: false, message: 'Date is required' });
 
-    // Enforce local boundary to prevent timezone skipping
     const [year, month, day] = date.split('-').map(Number);
     const queryDate = new Date(year, month - 1, day);
     const dayIndex = queryDate.getDay();
@@ -56,12 +52,10 @@ router.get('/available-slots', async (req, res) => {
     const standardSlots = generateSlots(dayIndex);
     if (standardSlots.length === 0) return res.json({ success: true, data: [] });
 
-    // If it is standard (Mon-Wed), no need to filter out booked slots
     if (dayIndex >= 1 && dayIndex <= 3) {
        return res.json({ success: true, data: standardSlots });
     }
 
-    // VIP (Fri-Sat) Slot Filtering
     const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
     const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
 
@@ -91,7 +85,6 @@ router.post('/book', async (req, res) => {
     const dayIndex = appointmentDate.getDay();
     const appType = (dayIndex === 5 || dayIndex === 6) ? 'vip' : 'normal';
     
-    // Only verify existing slots and block if it's a VIP appointment
     if (appType === 'vip') {
         const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
         const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
@@ -120,7 +113,6 @@ router.post('/book', async (req, res) => {
       status: 'pending'
     });
 
-    // explicitly map `userId` to `user` to sync with Billing accurately
     await Payment.create({
       user: userId, 
       amount: amount,
@@ -151,13 +143,18 @@ router.post('/', async (req, res) => {
     const { user_id, title, date, timeSlot, notes } = req.body;
     if (!user_id || !title || !date || !timeSlot) return res.status(400).json({ success: false, message: 'Missing fields' });
     
-    let config = await AppointmentConfig.findOne({ key: 'standard_price' });
-    const cost = config && config.price !== undefined ? Number(config.price) : 500;
-
+    let config = await AppointmentConfig.findOne({ key: 'appointment_pricing' });
+    
     const [year, month, day] = date.split('-').map(Number);
     const appointmentDate = new Date(year, month - 1, day, 0, 0, 0, 0);
     const dayIndex = appointmentDate.getDay();
     const appType = (dayIndex === 5 || dayIndex === 6) ? 'vip' : 'normal';
+
+    // Assign appropriate cost dynamically
+    let cost = 500;
+    if (config) {
+       cost = appType === 'vip' ? (config.vipPrice || 1000) : (config.standardPrice || 500);
+    }
 
     if (appType === 'vip') {
         const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);

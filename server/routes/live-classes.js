@@ -1,9 +1,23 @@
 import express from 'express';
 import LiveClass from '../models/LiveClass.js';
 import Batch from '../models/Batch.js';
-import { notifyUsers, getUsersForBatch } from '../utils/firebase-notifications.js'; // NEW IMPORT
+import { notifyUsers, getUsersForBatch } from '../utils/firebase-notifications.js';
 
 const router = express.Router();
+
+// Helper to ensure notifications show IST time instead of UTC 
+const formatToIST = (dateStr) => {
+  if (!dateStr) return '';
+  const options = { 
+    timeZone: 'Asia/Kolkata', 
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric', 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  };
+  return new Date(dateStr).toLocaleString('en-US', options);
+};
 
 router.get('/', async (req, res) => {
   try {
@@ -42,12 +56,14 @@ router.post('/', async (req, res) => {
       scheduledAt: scheduled_at || null, duration: duration || 60, status: 'scheduled', isActive: true,
     });
 
-    // NEW LOGIC: Notify users class is scheduled
+    // Send formatted IST time in the notification
     const userIds = await getUsersForBatch(batch);
+    const timeString = formatToIST(data.scheduledAt);
+    
     await notifyUsers(
       userIds,
       `Live Class Scheduled: ${batch.name}`,
-      `Topic: ${data.title} at ${new Date(data.scheduledAt).toLocaleString()}`,
+      `Topic: ${data.title} at ${timeString}`,
       { route: '/batch', batchId: String(batch._id) },
       'live_class',
       batch._id
@@ -67,7 +83,6 @@ router.post('/:id/start', async (req, res) => {
 
     if (!data) return res.status(404).json({ success: false, error: 'Live class not found' });
 
-    // NEW LOGIC: Notify users class has started
     if (data.batch) {
       const userIds = await getUsersForBatch(data.batch);
       await notifyUsers(
