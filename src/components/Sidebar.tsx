@@ -11,7 +11,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { API_URL } from '../config';
+import {API_URL} from '../config';
 
 interface NavItem {
   id: string;
@@ -25,35 +25,32 @@ export default function Sidebar() {
   const [hasNewAppointments, setHasNewAppointments] = useState(false);
   const [lastAppointmentCount, setLastAppointmentCount] = useState(0);
 
-  // Polling to simulate instant refresh and trigger red dot notification
   useEffect(() => {
     const checkNewAppointments = async () => {
       try {
         const token = localStorage.getItem('token');
-        if (!token) return;
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
         
-        const response = await fetch(`${API_URL}/appointments`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await response.json();
+        const response = await fetch(`${API_URL}/api/appointments`, { headers });
+        const result = await response.json();
         
-        const currentCount = data.length || 0;
-        
-        // If we have previously fetched and the count went up, show dot
-        if (lastAppointmentCount !== 0 && currentCount > lastAppointmentCount) {
-          setHasNewAppointments(true);
+        if (result.success) {
+          // Bug Fix: Previously was data.length, which was undefined resulting in 0!
+          const currentCount = result.data.length || 0; 
+          
+          if (lastAppointmentCount !== 0 && currentCount > lastAppointmentCount) {
+            setHasNewAppointments(true);
+          }
+          setLastAppointmentCount(currentCount);
         }
-        setLastAppointmentCount(currentCount);
       } catch (error) {
         console.error("Failed to fetch appointments for notification check", error);
       }
     };
 
-    // Initial check
     checkNewAppointments();
-
-    // Poll every 15 seconds
-    const interval = setInterval(checkNewAppointments, 15000);
+    const interval = setInterval(checkNewAppointments, 10000);
     return () => clearInterval(interval);
   }, [lastAppointmentCount]);
 
@@ -87,7 +84,6 @@ export default function Sidebar() {
                 <button
                   onClick={() => {
                     setActiveTab(item.id);
-                    // Clear the notification dot when clicked
                     if (item.id === 'appointments') {
                       setHasNewAppointments(false);
                     }

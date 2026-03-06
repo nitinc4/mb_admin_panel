@@ -16,7 +16,7 @@ interface Appointment {
   date?: string;
   timeSlot?: string;
   txnId?: string;
-  appointmentType?: string;
+  appointmentType?: string; 
 }
 
 const getLocalToday = () => {
@@ -34,8 +34,9 @@ export default function AppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   
-  // Single shared price state for both types as requested
-  const [price, setPrice] = useState('500');
+  // Separate Pricing States
+  const [standardPrice, setStandardPrice] = useState('500');
+  const [vipPrice, setVipPrice] = useState('1000');
   
   const [isSavingPrice, setIsSavingPrice] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
@@ -49,7 +50,6 @@ export default function AppointmentsPage() {
 
   const fetchData = async () => {
     try {
-      setLoading(true);
       const [apptsRes, usrRes, configRes] = await Promise.all([
         fetch(`${API_URL}/api/appointments`), fetch(`${API_URL}/api/users`), fetch(`${API_URL}/api/appointments/config`)
       ]);
@@ -58,12 +58,29 @@ export default function AppointmentsPage() {
       if (usr.success) setUsers(usr.data);
       
       if (config.success && config.data) {
-          setPrice(config.data.price?.toString() || '500');
+          setStandardPrice(config.data.standardPrice?.toString() || '500');
+          setVipPrice(config.data.vipPrice?.toString() || '1000');
       }
     } catch (error) { console.error('Error:', error); } finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+      fetchData(); 
+      
+      // Auto-refresh appointments list every 10 seconds silently
+      const interval = setInterval(() => {
+          fetch(`${API_URL}/api/appointments`)
+            .then(res => res.json())
+            .then(data => {
+               if (data.success) {
+                   setAppointments(data.data);
+               }
+            })
+            .catch(console.error);
+      }, 10000);
+      
+      return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (showModal && form.date) {
@@ -87,7 +104,10 @@ export default function AppointmentsPage() {
       const response = await fetch(`${API_URL}/api/appointments/config`, { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify({ price: Number(price) }) 
+          body: JSON.stringify({ 
+              standardPrice: Number(standardPrice), 
+              vipPrice: Number(vipPrice) 
+          }) 
       });
       const result = await response.json();
       if (result.success) alert('Appointment pricing updated successfully!');
@@ -139,18 +159,28 @@ export default function AppointmentsPage() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 max-w-xl">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 max-w-2xl">
         <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-4">
-          <DollarSign className="w-5 h-5 text-orange-500" /> General Appointment Pricing
+          <DollarSign className="w-5 h-5 text-orange-500" /> App Appointment Pricing
         </h2>
         <div className="flex flex-col sm:flex-row gap-4 items-end">
           <div className="flex-1 w-full">
-            <label className="block text-sm font-bold text-gray-700 mb-1">Appointment Price (₹)</label>
-            <p className="text-xs text-gray-500 mb-1">Applies to both Standard and VIP slots</p>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Standard Price (₹)</label>
+            <p className="text-xs text-gray-500 mb-1">Mon - Wed</p>
             <input 
               type="number" 
-              value={price} 
-              onChange={e => setPrice(e.target.value)}
+              value={standardPrice} 
+              onChange={e => setStandardPrice(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+            />
+          </div>
+          <div className="flex-1 w-full">
+            <label className="block text-sm font-bold text-gray-700 mb-1">VIP Price (₹)</label>
+             <p className="text-xs text-gray-500 mb-1">Fri - Sat</p>
+            <input 
+              type="number" 
+              value={vipPrice} 
+              onChange={e => setVipPrice(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
             />
           </div>
@@ -219,14 +249,14 @@ export default function AppointmentsPage() {
                          <td className="px-6 py-4 font-medium text-gray-800 whitespace-nowrap">{displayDate}</td>
                          <td className="px-6 py-4 font-bold text-gray-900">{app.user?.name || 'N/A'}</td>
                          <td className="px-6 py-4 text-center">
-                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${isVip ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                               {isVip ? 'VIP' : 'STANDARD'}
+                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${isVip ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                               {isVip ? 'VIP' : 'NORMAL'}
                             </span>
                          </td>
                          <td className="px-6 py-4 text-gray-500">{app.user?.phone || 'N/A'}</td>
                          <td className="px-6 py-4 text-center">
                             {isAppBooking ? (
-                               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">Yes</span>
+                               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">Yes</span>
                             ) : (
                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600">No</span>
                             )}

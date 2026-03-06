@@ -150,7 +150,6 @@ router.post('/', async (req, res) => {
     const dayIndex = appointmentDate.getDay();
     const appType = (dayIndex === 5 || dayIndex === 6) ? 'vip' : 'normal';
 
-    // Assign appropriate cost dynamically
     let cost = 500;
     if (config) {
        cost = appType === 'vip' ? (config.vipPrice || 1000) : (config.standardPrice || 500);
@@ -206,6 +205,12 @@ router.put('/:id', async (req, res) => {
   try {
     const { status } = req.body;
     const appointment = await Appointment.findByIdAndUpdate(req.params.id, { status }, { new: true }).populate('user', 'name email phone');
+    
+    // NEW: Automatically delete the associated payment if the appointment is cancelled
+    if (status === 'cancelled') {
+       await Payment.findOneAndDelete({ appointment: req.params.id });
+    }
+    
     res.json({ success: true, data: appointment });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
