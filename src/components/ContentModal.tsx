@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Upload } from 'lucide-react';
+import { X, Upload, Loader2, AlertCircle } from 'lucide-react';
 import { API_URL } from '../config';
 
 interface ContentItem {
@@ -31,6 +31,8 @@ export default function ContentModal({ content, batchId, onClose, onSave }: Cont
   
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (content) {
@@ -47,8 +49,38 @@ export default function ContentModal({ content, batchId, onClose, onSave }: Cont
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setError(null);
 
     try {
+      let finalFileUrl = content?.fileUrl || '';
+      let finalFileSize = content?.fileSize || 0;
+
+      // 1. Upload file to S3 if a new file is selected
+      if (selectedFile) {
+        setUploadStatus('Uploading media to S3...');
+        const uploadData = new FormData();
+        uploadData.append('file', selectedFile);
+
+        const uploadRes = await fetch(`${API_URL}/api/upload`, {
+          method: 'POST',
+          body: uploadData,
+        });
+
+        const uploadResult = await uploadRes.json();
+
+        if (!uploadRes.ok || !uploadResult.success) {
+          throw new Error(uploadResult.message || 'Failed to upload media file.');
+        }
+
+        finalFileUrl = uploadResult.url;
+        finalFileSize = selectedFile.size;
+      } else if (!content) {
+        // If creating new content without a file
+        throw new Error('Please select a file to upload.');
+      }
+
+      // 2. Save Content Item to Database
+      setUploadStatus('Saving content details...');
       const url = content
         ? `${API_URL}/api/content/${content.id}`
         : `${API_URL}/api/content`;
@@ -63,21 +95,22 @@ export default function ContentModal({ content, batchId, onClose, onSave }: Cont
           content_type: formData.content_type,
           duration: formData.duration,
           is_published: formData.is_published,
-          // Since Firebase is on hold, we send dummy data or keep the existing URL
-          file_url: content?.fileUrl || '', 
-          file_size: selectedFile ? selectedFile.size : (formData.content_type === 'video' ? 15000000 : 2500000)
+          file_url: finalFileUrl, // Use the real S3 URL
+          file_size: finalFileSize
         }),
       });
 
       if (response.ok) {
         onSave();
       } else {
-        console.error('Failed to save content');
+        throw new Error('Failed to save content details to the database.');
       }
-    } catch (error) {
-      console.error('Error saving content:', error);
+    } catch (err: any) {
+      console.error('Error saving content:', err);
+      setError(err.message || 'An unexpected error occurred.');
     } finally {
       setIsSubmitting(false);
+      setUploadStatus(null);
     }
   };
 
@@ -94,6 +127,13 @@ export default function ContentModal({ content, batchId, onClose, onSave }: Cont
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {error && (
+            <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm flex items-center gap-2 border border-red-100">
+              <AlertCircle className="w-4 h-4" />
+              {error}
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Content Type</label>
             <div className="flex gap-4">
@@ -104,6 +144,7 @@ export default function ContentModal({ content, batchId, onClose, onSave }: Cont
                   checked={formData.content_type === 'video'}
                   onChange={(e) => setFormData({ ...formData, content_type: e.target.value as 'video' | 'pdf' })}
                   className="w-4 h-4 text-blue-600"
+                  disabled={isSubmitting}
                 />
                 <span className="ml-3 font-medium text-gray-700">Video</span>
               </label>
@@ -114,6 +155,7 @@ export default function ContentModal({ content, batchId, onClose, onSave }: Cont
                   checked={formData.content_type === 'pdf'}
                   onChange={(e) => setFormData({ ...formData, content_type: e.target.value as 'video' | 'pdf' })}
                   className="w-4 h-4 text-blue-600"
+                  disabled={isSubmitting}
                 />
                 <span className="ml-3 font-medium text-gray-700">PDF</span>
               </label>
@@ -144,20 +186,24 @@ export default function ContentModal({ content, batchId, onClose, onSave }: Cont
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Upload File</label>
-            <label className={`block border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isSubmitting ? 'border-gray-300 bg-gray-50 opacity-50' : 'border-gray-300 hover:border-blue-500 cursor-pointer'}`}>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Upload File (Amazon S3)</label>
+            <label className={`block border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isSubmitting ? 'border-gray-300 bg-gray-50 opacity-50 cursor-not-allowed' : 'border-gray-300 hover:border-blue-500 cursor-pointer'}`}>
               <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
               
               {selectedFile ? (
                 <div className="text-blue-600 font-medium mb-1">{selectedFile.name}</div>
               ) : content?.fileUrl ? (
-                <div className="text-green-600 font-medium mb-1">File attached. Click to replace.</div>
+                <div className="text-green-600 font-medium mb-1 truncate px-4 max-w-full">
+                  Current file: {content.fileUrl.split('/').pop()}
+                  <br />
+                  <span className="text-sm font-normal text-gray-500">Click to replace</span>
+                </div>
               ) : (
                 <p className="text-sm text-gray-600 mb-1">Click to select a file</p>
               )}
               
-              <p className="text-xs text-gray-500">
-                {formData.content_type === 'video' ? 'MP4, MOV, AVI up to 500MB' : 'PDF up to 50MB'}
+              <p className="text-xs text-gray-500 mt-2">
+                {formData.content_type === 'video' ? 'MP4, MOV, AVI' : 'PDF documents'}
               </p>
               <input
                 type="file"
@@ -167,13 +213,11 @@ export default function ContentModal({ content, batchId, onClose, onSave }: Cont
                 onChange={(e) => {
                   if (e.target.files && e.target.files[0]) {
                     setSelectedFile(e.target.files[0]);
+                    setError(null);
                   }
                 }}
               />
             </label>
-            <p className="text-xs text-blue-600 font-medium mt-2">
-              Note: Cloud Storage is on hold. A dummy URL will be generated automatically.
-            </p>
           </div>
 
           {formData.content_type === 'video' && (
@@ -207,7 +251,14 @@ export default function ContentModal({ content, batchId, onClose, onSave }: Cont
               Cancel
             </button>
             <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex justify-center items-center gap-2">
-              {isSubmitting ? 'Saving...' : (content ? 'Update Content' : 'Save Content')}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {uploadStatus || 'Processing...'}
+                </>
+              ) : (
+                content ? 'Update Content' : 'Upload & Save'
+              )}
             </button>
           </div>
         </form>
