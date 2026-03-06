@@ -38,14 +38,18 @@ const requireAppAuth = async (req, res, next) => {
 /**
  * App Check Email Route
  */
-router.post('/check-email', async (req, res) => {
+router.post('/check-phone', async (req, res) => {
   try {
-    const { email } = req.body;
-    const user = await User.findOne({ email });
+    const { phone } = req.body;
+    
+    const user = await User.findOne({ phone });
+    
     if (!user) {
-      return res.status(404).json({ success: false, message: 'Email not registered' });
+      return res.status(404).json({ success: false, message: 'Phone number not registered' });
     }
+
     const hasPassword = user.password && user.password.trim() !== '';
+
     res.json({ success: true, userId: user._id, hasPassword });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -81,8 +85,8 @@ router.post('/setup-password', async (req, res) => {
  */
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email }).populate('tier', 'id name monthlyPrice yearlyPrice lifetimePrice');
+    const { phone, password } = req.body;
+    const user = await User.findOne({ phone }).populate('tier', 'id name monthlyPrice yearlyPrice lifetimePrice');
     
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
