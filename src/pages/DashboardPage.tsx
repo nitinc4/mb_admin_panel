@@ -4,7 +4,7 @@ import { Users, BookOpen, IndianRupee, TrendingUp } from 'lucide-react';
 import { API_URL } from '../config';
 import { useApp } from '../context/AppContext';
 
-const COLORS = ['#1100ff', '#cfc503', '#ba0101']; // Primary Orange, Secondary Yellow, Green
+const COLORS = ['#1100ff', '#cfc503', '#ba0101']; 
 
 interface User { id: string; }
 interface Batch { id: string; isActive: boolean; }
@@ -96,20 +96,22 @@ export default function DashboardPage() {
   const activeBatchesCount = batches.filter(b => b.isActive).length;
 
   if (loading) {
-    return <div className="p-8 text-gray-500 bg-cream min-h-full">Loading dashboard data...</div>;
+    // Adjusted loading padding
+    return <div className="p-4 lg:p-8 text-gray-500 bg-cream min-h-full">Loading dashboard data...</div>;
   }
 
   return (
-    <div className="p-8 bg-cream min-h-full">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
-        <p className="text-gray-600 mt-1">Overview of your app's performance and revenue.</p>
+    // Adjusted container padding: p-4 on mobile, p-8 on large screens
+    <div className="p-4 lg:p-8 bg-cream min-h-full">
+      <div className="mb-6 lg:mb-8">
+        <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">Dashboard</h1>
+        <p className="text-sm lg:text-base text-gray-600 mt-1">Overview of your app's performance and revenue.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 mb-8">
         <div 
           onClick={() => setActiveTab('users')}
-          className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow group"
+          className="bg-white p-5 lg:p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow group"
         >
           <div>
             <p className="text-sm font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">Total Users</p>
@@ -122,7 +124,7 @@ export default function DashboardPage() {
 
         <div 
           onClick={() => setActiveTab('batches')}
-          className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow group"
+          className="bg-white p-5 lg:p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow group"
         >
           <div>
             <p className="text-sm font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">Active Batches</p>
@@ -135,7 +137,7 @@ export default function DashboardPage() {
 
         <div 
           onClick={() => setActiveTab('billing')}
-          className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow group"
+          className="bg-white p-5 lg:p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow group"
         >
           <div>
             <p className="text-sm font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">Revenue ({timeFilter})</p>
@@ -147,8 +149,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 lg:p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div className="flex items-center space-x-2">
             <TrendingUp className="text-gray-500" size={20} />
             <h2 className="text-lg font-bold text-gray-800">Revenue Breakdown</h2>
@@ -157,7 +159,7 @@ export default function DashboardPage() {
           <select
             value={timeFilter}
             onChange={(e) => setTimeFilter(e.target.value as any)}
-            className="mt-4 sm:mt-0 px-4 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer transition-all"
+            className="w-full sm:w-auto px-4 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer transition-all"
           >
             <option value="This Month">This Month</option>
             <option value="This Year">This Year</option>
@@ -165,9 +167,9 @@ export default function DashboardPage() {
           </select>
         </div>
 
-        <div className="h-[400px] w-full">
+        <div className="h-[300px] lg:h-[400px] w-full">
           {totalRevenue === 0 ? (
-            <div className="flex items-center justify-center h-full text-gray-400 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50">
+            <div className="flex items-center justify-center h-full text-center p-4 text-gray-400 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50">
               No revenue collected for this period yet.
             </div>
           ) : (
@@ -177,8 +179,8 @@ export default function DashboardPage() {
                   data={chartData.filter(d => d.value > 0)} 
                   cx="50%"
                   cy="50%"
-                  innerRadius={100}
-                  outerRadius={140}
+                  innerRadius="50%"
+                  outerRadius="80%"
                   paddingAngle={5}
                   dataKey="value"
                 >
@@ -190,7 +192,7 @@ export default function DashboardPage() {
                   formatter={(value) => [`₹${(value ?? 0).toLocaleString()}`, 'Revenue']}
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                 />
-                <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
               </PieChart>
             </ResponsiveContainer>
           )}

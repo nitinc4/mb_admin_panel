@@ -144,21 +144,22 @@ export default function AppointmentsPage() {
   const statuses = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'];
   const activeAppointments = appointments.filter(a => a.status === activeStatus);
 
-  if (loading) return <div className="p-8 text-gray-500 bg-cream min-h-full">Loading appointments...</div>;
+  if (loading) return <div className="p-4 lg:p-8 text-gray-500 bg-cream min-h-full">Loading appointments...</div>;
 
   return (
-    <div className="p-8 bg-cream min-h-full">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 lg:p-8 bg-cream min-h-full">
+      {/* Mobile responsive header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Appointments</h1>
-          <p className="text-gray-600 mt-1">Manage incoming appointment requests</p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">Appointments</h1>
+          <p className="text-sm lg:text-base text-gray-600 mt-1">Manage incoming appointment requests</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-opacity font-medium shadow-sm">
+        <button onClick={() => setShowModal(true)} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-opacity font-medium shadow-sm">
           <Plus size={18} /> New Appointment
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 max-w-2xl">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 lg:p-6 mb-8 max-w-2xl">
         <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-4">
           <DollarSign className="w-5 h-5 text-orange-500" /> App Appointment Pricing
         </h2>
@@ -192,17 +193,17 @@ export default function AppointmentsPage() {
         </div>
       </div>
 
-      <div className="flex gap-2 border-b border-gray-200 mb-6 overflow-x-auto pb-2">
+      <div className="flex gap-2 border-b border-gray-200 mb-6 overflow-x-auto pb-2 scrollbar-hide">
         {statuses.map(s => {
           const count = appointments.filter(a => a.status === s).length;
           return (
             <button 
                key={s}
                onClick={() => setActiveStatus(s)}
-               className={`flex items-center gap-2 px-4 py-3 text-sm font-bold uppercase tracking-wider whitespace-nowrap transition-colors border-b-2 ${activeStatus === s ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+               className={`flex items-center gap-2 px-3 lg:px-4 py-3 text-xs lg:text-sm font-bold uppercase tracking-wider whitespace-nowrap transition-colors border-b-2 ${activeStatus === s ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
             >
                {s.replace('_', ' ')}
-               <span className={`px-2 py-0.5 rounded-full text-xs ${activeStatus === s ? 'bg-orange-100 text-primary' : 'bg-gray-100 text-gray-500'}`}>{count}</span>
+               <span className={`px-2 py-0.5 rounded-full text-[10px] lg:text-xs ${activeStatus === s ? 'bg-orange-100 text-primary' : 'bg-gray-100 text-gray-500'}`}>{count}</span>
             </button>
           );
         })}
@@ -211,17 +212,17 @@ export default function AppointmentsPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-10">
         <div className="overflow-x-auto">
           {activeAppointments.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">No {activeStatus.replace('_', ' ')} appointments found.</div>
+            <div className="p-8 text-center text-gray-500 text-sm lg:text-base">No {activeStatus.replace('_', ' ')} appointments found.</div>
           ) : (
             <table className="w-full text-left text-sm text-gray-600">
                <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
-                     <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Date / Time</th>
-                     <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Username</th>
-                     <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-center">Type</th>
-                     <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Phone</th>
-                     <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-center">From App</th>
-                     <th className="px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-right">Actions</th>
+                     <th className="px-4 lg:px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs whitespace-nowrap">Date / Time</th>
+                     <th className="px-4 lg:px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs whitespace-nowrap">Username</th>
+                     <th className="px-4 lg:px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-center whitespace-nowrap">Type</th>
+                     <th className="px-4 lg:px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs whitespace-nowrap">Phone</th>
+                     <th className="px-4 lg:px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-center whitespace-nowrap">From App</th>
+                     <th className="px-4 lg:px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs text-right whitespace-nowrap">Actions</th>
                   </tr>
                </thead>
                <tbody className="divide-y divide-gray-100">
@@ -243,36 +244,35 @@ export default function AppointmentsPage() {
                     const isAppBooking = !!app.txnId || !!app.timeSlot;
                     const isVip = app.appointmentType === 'vip';
                     
-                    // Conditionally check if the booking came from the GuestUser table
                     const displayName = app.user?.name || app.guestUser?.name || 'N/A';
                     const displayPhone = app.user?.phone || app.guestUser?.phone || 'N/A';
                     const isGuest = !app.user && !!app.guestUser;
 
                     return (
                       <tr key={safeId} className="hover:bg-orange-50/20 transition-colors">
-                         <td className="px-6 py-4 font-medium text-gray-800 whitespace-nowrap">{displayDate}</td>
-                         <td className="px-6 py-4 font-bold text-gray-900">
+                         <td className="px-4 lg:px-6 py-4 font-medium text-gray-800 whitespace-nowrap">{displayDate}</td>
+                         <td className="px-4 lg:px-6 py-4 font-bold text-gray-900 whitespace-nowrap">
                              {displayName}
-                             {isGuest && <span className="ml-2 text-xs text-gray-400 font-normal bg-gray-100 px-2 py-0.5 rounded-full">(Guest)</span>}
+                             {isGuest && <span className="ml-2 text-[10px] lg:text-xs text-gray-400 font-normal bg-gray-100 px-2 py-0.5 rounded-full">(Guest)</span>}
                          </td>
-                         <td className="px-6 py-4 text-center">
-                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${isVip ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                         <td className="px-4 lg:px-6 py-4 text-center">
+                            <span className={`inline-flex items-center px-2 lg:px-3 py-1 rounded-full text-[10px] lg:text-xs font-bold ${isVip ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>
                                {isVip ? 'VIP' : 'NORMAL'}
                             </span>
                          </td>
-                         <td className="px-6 py-4 text-gray-500">{displayPhone}</td>
-                         <td className="px-6 py-4 text-center">
+                         <td className="px-4 lg:px-6 py-4 text-gray-500 whitespace-nowrap">{displayPhone}</td>
+                         <td className="px-4 lg:px-6 py-4 text-center">
                             {isAppBooking ? (
-                               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">Yes</span>
+                               <span className="inline-flex items-center px-2 lg:px-3 py-1 rounded-full text-[10px] lg:text-xs font-bold bg-blue-100 text-blue-700">Yes</span>
                             ) : (
-                               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600">No</span>
+                               <span className="inline-flex items-center px-2 lg:px-3 py-1 rounded-full text-[10px] lg:text-xs font-bold bg-gray-100 text-gray-600">No</span>
                             )}
                          </td>
-                         <td className="px-6 py-4 text-right flex items-center justify-end gap-3">
+                         <td className="px-4 lg:px-6 py-4 text-right flex items-center justify-end gap-2 lg:gap-3">
                             <select 
                                value={app.status}
                                onChange={(e) => handleStatusChange(safeId, e.target.value)}
-                               className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary font-medium text-gray-700 outline-none cursor-pointer"
+                               className="px-2 py-1.5 border border-gray-300 rounded-lg text-xs lg:text-sm focus:ring-2 focus:ring-primary focus:border-primary font-medium text-gray-700 outline-none cursor-pointer"
                             >
                                {statuses.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}</option>)}
                             </select>
@@ -281,7 +281,7 @@ export default function AppointmentsPage() {
                               className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                               title="Delete Appointment"
                             >
-                              <Trash2 className="w-5 h-5" />
+                              <Trash2 className="w-4 h-4 lg:w-5 lg:h-5" />
                             </button>
                          </td>
                       </tr>
@@ -294,8 +294,8 @@ export default function AppointmentsPage() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 lg:p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-gray-800">New Appointment</h2>
               <button onClick={() => setShowModal(false)} className="p-1 text-gray-400 hover:text-gray-800 transition-colors"><X size={20} /></button>
@@ -313,7 +313,8 @@ export default function AppointmentsPage() {
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Custom Title (Optional)</label>
                 <input type="text" placeholder="Defaults to standard/VIP if blank" value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              {/* Changed to 1 column on mobile, 2 on sm screen */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Date *</label>
                   <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all" />
@@ -333,9 +334,9 @@ export default function AppointmentsPage() {
                 <textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all" rows={3} placeholder="Add any details or instructions here..." />
               </div>
             </div>
-            <div className="flex gap-3 mt-8">
+            <div className="flex flex-col-reverse sm:flex-row gap-3 mt-8">
               <button onClick={() => setShowModal(false)} className="flex-1 px-4 py-3 border border-gray-300 font-semibold text-gray-700 rounded-xl hover:bg-gray-50 transition-colors">Cancel</button>
-              <button onClick={handleCreateAppointment} className="flex-1 px-4 py-3 bg-primary font-semibold text-white rounded-xl hover:opacity-90 transition-opacity">Save Appointment</button>
+              <button onClick={handleCreateAppointment} className="flex-1 px-4 py-3 bg-primary font-semibold text-white rounded-xl hover:opacity-90 transition-opacity">Save</button>
             </div>
           </div>
         </div>
