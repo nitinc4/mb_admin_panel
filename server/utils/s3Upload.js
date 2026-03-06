@@ -19,18 +19,17 @@ const upload = multer({
   storage: multerS3({
     s3: s3Client,
     bucket: process.env.AWS_S3_BUCKET_NAME,
-    contentType: multerS3.AUTO_CONTENT_TYPE, // Automatically detect content type (e.g., image/jpeg)
+    contentType: multerS3.AUTO_CONTENT_TYPE,
     metadata: function (req, file, cb) {
       cb(null, { fieldName: file.fieldname });
     },
     key: function (req, file, cb) {
-      // Create a unique filename and store it in a 'media' folder in your bucket
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       cb(null, `media/${uniqueSuffix}-${file.originalname.replace(/\s+/g, '-')}`);
     },
   }),
   limits: {
-    fileSize: 10 * 1024 * 1024, // Optional: Limit file size to 10MB
+    fileSize: 500 * 1024 * 1024, // CHANGED: Increased limit to 500MB (500 * 1024 * 1024 bytes)
   },
 });
 
