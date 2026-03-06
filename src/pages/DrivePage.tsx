@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Cloud, FileText, Film, HardDrive, ExternalLink, AlertCircle } from 'lucide-react';
+import { Cloud, FileText, Film, HardDrive, ExternalLink, AlertCircle, Trash2, Loader2 } from 'lucide-react';
 import { API_URL } from '../config';
 
 interface S3File {
@@ -19,6 +19,7 @@ export default function DrivePage() {
   const [files, setFiles] = useState<S3File[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingKey, setDeletingKey] = useState<string | null>(null);
 
   useEffect(() => {
     fetchFiles();
@@ -41,6 +42,40 @@ export default function DrivePage() {
     }
   };
 
+  const handleDelete = async (key: string) => {
+    // Serious warning to prevent breaking active courses
+    const confirmed = window.confirm(
+      '⚠️ WARNING: Are you sure you want to permanently delete this file?\n\n' +
+      'If this file is currently attached to a live Batch, deleting it here will BREAK the video/PDF for your students! ' +
+      'Only delete files here if you are sure they are orphaned/unused.'
+    );
+
+    if (!confirmed) return;
+
+    setDeletingKey(key);
+    setError(null);
+
+    try {
+      // Send the delete request with the exact S3 key
+      const res = await fetch(`${API_URL}/api/drive?key=${encodeURIComponent(key)}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        // Remove the file from the local state immediately
+        setFiles((prev) => prev.filter((file) => file.key !== key));
+      } else {
+        setError(data.message || 'Failed to delete file');
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+      setError('A network error occurred while deleting the file.');
+    } finally {
+      setDeletingKey(null);
+    }
+  };
+
   // Calculations
   const totalSizeBytes = files.reduce((acc, file) => acc + file.size, 0);
   const totalSizeGB = totalSizeBytes / (1024 * 1024 * 1024);
@@ -50,7 +85,7 @@ export default function DrivePage() {
   const estimatedCostUSD = billableGB * PRICE_PER_GB_USD;
   const estimatedCostINR = estimatedCostUSD * USD_TO_INR;
 
-  // Progress Bar percentage (capped at 100% for the free tier visual)
+  // Progress Bar percentage
   const usagePercentage = Math.min(100, (totalSizeBytes / FREE_TIER_BYTES) * 100);
   const isOverLimit = totalSizeBytes > FREE_TIER_BYTES;
 
@@ -130,12 +165,14 @@ export default function DrivePage() {
                   <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">File Name</th>
                   <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">Date Uploaded</th>
                   <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">Size</th>
-                  <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase text-right">Link</th>
+                  <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {files.map((file) => {
                   const isVideo = file.key.match(/\.(mp4|mov|avi)$/i);
+                  const isDeletingThis = deletingKey === file.key;
+
                   return (
                     <tr key={file.key} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
@@ -153,14 +190,29 @@ export default function DrivePage() {
                         {formatBytes(file.size)}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <a 
-                          href={file.url} 
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                        >
-                          View <ExternalLink className="w-3 h-3" />
-                        </a>
+                        <div className="flex items-center justify-end gap-2">
+                          <a 
+                            href={file.url} 
+                            target="_blank" 
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                          >
+                            View <ExternalLink className="w-3 h-3" />
+                          </a>
+                          
+                          <button
+                            onClick={() => handleDelete(file.key)}
+                            disabled={isDeletingThis || deletingKey !== null}
+                            className={`inline-flex items-center justify-center p-1.5 rounded-lg transition-colors ${
+                              isDeletingThis 
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                                : 'text-red-500 hover:bg-red-50 hover:text-red-700'
+                            }`}
+                            title="Permanently delete file"
+                          >
+                            {isDeletingThis ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

@@ -1,5 +1,5 @@
 import express from 'express';
-import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { S3Client, ListObjectsV2Command, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -14,13 +14,13 @@ const s3Client = new S3Client({
   },
 });
 
+// GET: List all files
 router.get('/', async (req, res) => {
   try {
     const command = new ListObjectsV2Command({
       Bucket: process.env.AWS_S3_BUCKET_NAME,
     });
     
-    // This fetches up to 1000 items at a time
     const response = await s3Client.send(command);
     
     const files = (response.Contents || []).map(item => ({
@@ -37,6 +37,29 @@ router.get('/', async (req, res) => {
   } catch (error) {
     console.error('Error fetching S3 objects:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch drive files' });
+  }
+});
+
+// DELETE: Remove a file by its key
+router.delete('/', async (req, res) => {
+  try {
+    const { key } = req.query; // Expecting the key as a query parameter
+    
+    if (!key) {
+      return res.status(400).json({ success: false, message: 'File key is required' });
+    }
+
+    const command = new DeleteObjectCommand({
+      Bucket: process.env.AWS_S3_BUCKET_NAME,
+      Key: key,
+    });
+
+    await s3Client.send(command);
+    
+    res.json({ success: true, message: 'File permanently deleted from S3' });
+  } catch (error) {
+    console.error('Error deleting S3 object:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete file' });
   }
 });
 
