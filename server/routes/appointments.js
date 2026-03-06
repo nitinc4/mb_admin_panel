@@ -188,7 +188,7 @@ router.post('/', async (req, res) => {
       paymentType: 'cash',
       reason: `Appointment - Admin Booking - ${timeSlot}`,
       dueDate: appointmentDate,
-      status: 'due',
+      status: 'upcoming',
       appointment: appointment._id
     });
 
