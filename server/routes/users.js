@@ -27,6 +27,22 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// NEW: Password Reset Endpoint - nullifies password to force app-side re-setup
+router.put('/:id/reset-password', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+
+    // Set password to null so the user is forced to set it again in the app
+    user.password = null; 
+    await user.save();
+
+    res.json({ success: true, message: 'Password reset successful' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 router.post('/', async (req, res) => {
   try {
     const { email, full_name, phone, fcm_token, tier_id, billingCycle, is_active } = req.body;
@@ -41,7 +57,6 @@ router.post('/', async (req, res) => {
       isActive: is_active !== undefined ? is_active : true,
     });
 
-    // AUTO INVOICE ON CREATION
     if (tier_id) {
       const tierDetails = await Tier.findById(tier_id);
       if (tierDetails) {
@@ -71,11 +86,10 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
-    const { email, full_name, phone, fcm_token, tier_id, billingCycle, is_active, isBlocked, password } = req.body;
+    const { email, full_name, phone, fcm_token, tier_id, billingCycle, is_active, isBlocked, password, profileImageUrl } = req.body;
     const oldUser = await User.findById(req.params.id);
     if (!oldUser) return res.status(404).json({ success: false, error: 'User not found' });
 
-    // ONLY update the fields that are actually sent from the app
     const updateFields = {};
     if (email !== undefined) updateFields.email = email;
     if (full_name !== undefined) updateFields.name = full_name;
@@ -86,7 +100,9 @@ router.put('/:id', async (req, res) => {
     if (is_active !== undefined) updateFields.isActive = is_active;
     if (isBlocked !== undefined) updateFields.isBlocked = isBlocked;
     
-    // CRITICAL FIX: Allow password to be saved
+    // Support for profile image URL updates
+    if (profileImageUrl !== undefined) updateFields.profileImageUrl = profileImageUrl;
+    
     if (password !== undefined && password.trim() !== '') {
       updateFields.password = password;
     }
@@ -97,7 +113,6 @@ router.put('/:id', async (req, res) => {
       { new: true, runValidators: true }
     ).populate('tier', 'id name monthlyPrice yearlyPrice lifetimePrice');
 
-    // AUTO INVOICE ON TIER UPGRADE/CHANGE
     if (tier_id && (!oldUser.tier || oldUser.tier.toString() !== tier_id.toString() || oldUser.billingCycle !== billingCycle)) {
       const tierDetails = await Tier.findById(tier_id);
       if (tierDetails) {
