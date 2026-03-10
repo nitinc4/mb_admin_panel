@@ -4,7 +4,7 @@ import User from '../models/User.js';
 import GuestUser from '../models/GuestUser.js'; 
 import Payment from '../models/Payment.js';
 import Tier from '../models/Tier.js';
-import { s3Upload } from '../utils/s3Upload.js'; // Assuming you use this utility for S3 uploads
+import s3Upload from '../utils/s3Upload.js';
 
 const router = express.Router();
 
@@ -126,16 +126,15 @@ router.post('/guest-user', async (req, res) => {
 /**
  * NEW: Update Profile Image Route (PROTECTED)
  */
-router.post('/update-profile-image', requireAppAuth, upload.single('profileImage'), async (req, res) => {
+router.post('/update-profile-image', requireAppAuth, multer({ storage: multer.memoryStorage() }).single('profileImage'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No image file uploaded' });
     }
 
-    // Upload to S3 and get the URL
+    // Call the utility function directly
     const imageUrl = await s3Upload(req.file);
 
-    // Update the user record with the new URL
     const user = await User.findByIdAndUpdate(
       req.user._id,
       { $set: { profileImageUrl: imageUrl } },
