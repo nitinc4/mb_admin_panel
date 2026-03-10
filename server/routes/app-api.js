@@ -1,10 +1,15 @@
 import express from 'express';
+import multer from 'multer'; // Import multer for handling file uploads
 import User from '../models/User.js';
-import GuestUser from '../models/GuestUser.js'; // NEW IMPORT
+import GuestUser from '../models/GuestUser.js'; 
 import Payment from '../models/Payment.js';
 import Tier from '../models/Tier.js';
+import { s3Upload } from '../utils/s3Upload.js'; // Assuming you use this utility for S3 uploads
 
 const router = express.Router();
+
+// Multer configuration for temporary storage before S3 upload
+const upload = multer({ storage: multer.memoryStorage() });
 
 /**
  * MIDDLEWARE: The Force-Logout Checkpoint
@@ -119,7 +124,33 @@ router.post('/guest-user', async (req, res) => {
 });
 
 /**
+ * NEW: Update Profile Image Route (PROTECTED)
+ */
+router.post('/update-profile-image', requireAppAuth, upload.single('profileImage'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No image file uploaded' });
+    }
+
+    // Upload to S3 and get the URL
+    const imageUrl = await s3Upload(req.file);
+
+    // Update the user record with the new URL
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: { profileImageUrl: imageUrl } },
+      { new: true }
+    );
+
+    res.json({ success: true, imageUrl: user.profileImageUrl });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * Fetch User Data (Protected Route)
+ * Returns full profile including profileImageUrl
  */
 router.get('/my-profile', requireAppAuth, async (req, res) => {
   try {
