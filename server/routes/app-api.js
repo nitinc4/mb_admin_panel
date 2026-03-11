@@ -126,26 +126,32 @@ router.post('/guest-user', async (req, res) => {
 /**
  * NEW: Update Profile Image Route (PROTECTED)
  */
-router.post('/update-profile-image', requireAppAuth, multer({ storage: multer.memoryStorage() }).single('profileImage'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No image file uploaded' });
+// Replace the existing /update-profile-image route with this:
+router.post('/update-profile-image', 
+  requireAppAuth, 
+  s3Upload.single('profileImage'), // Use the S3 middleware directly
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: 'No image file uploaded' });
+      }
+
+      // Multer-S3 stores the URL in req.file.location
+      const imageUrl = req.file.location; 
+
+      const user = await User.findByIdAndUpdate(
+        req.user._id,
+        { $set: { profileImageUrl: imageUrl } },
+        { new: true }
+      );
+
+      res.json({ success: true, imageUrl: user.profileImageUrl });
+    } catch (error) {
+      console.error('Upload Error:', error);
+      res.status(500).json({ success: false, error: error.message });
     }
-
-    // Call the utility function directly
-    const imageUrl = await s3Upload(req.file);
-
-    const user = await User.findByIdAndUpdate(
-      req.user._id,
-      { $set: { profileImageUrl: imageUrl } },
-      { new: true }
-    );
-
-    res.json({ success: true, imageUrl: user.profileImageUrl });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
   }
-});
+);
 
 /**
  * Fetch User Data (Protected Route)
